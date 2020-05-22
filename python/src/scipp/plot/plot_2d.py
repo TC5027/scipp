@@ -15,6 +15,8 @@ import numpy as np
 import ipywidgets as widgets
 import matplotlib.pyplot as plt
 import warnings
+from scipy.interpolate import griddata
+from scipy.stats import binned_statistic_2d
 
 
 def plot_2d(scipp_obj_dict=None,
@@ -251,6 +253,27 @@ class Slicer2d(Slicer):
                 axparams[but_val]["dim"] = dim
 
         extent_array = np.array(list(self.extent.values())).flatten()
+
+        # Image re-sampling
+        res = 512
+        nx = res
+        ny = res
+        # xmin = 0.0
+        # xmax = x[-1]
+        # dx = (extent_array[1] - extent_array[0])/float(nx)
+        self.img_xe = np.linspace(extent_array[0], extent_array[1], nx+1)
+        self.img_xc = edges_to_centers(self.img_xe)
+        self.img_ye = np.linspace(extent_array[2], extent_array[3], ny+1)
+        self.img_yc = edges_to_centers(self.img_ye)
+        # ymin = 0.0
+        # ymax = y[-1]
+        # dy = (ymax - ymin)/float(ny)
+        # ye = np.linspace(ymin, ymax, ny+1)
+        # yc = np.linspace(ymin + 0.5*dy, ymax - 0.5*dy, ny)
+        # self.img_xg, self.img_yg = np.meshgrid(self.img_xc, self.img_yc)
+        self.img_xg, self.img_yg = np.meshgrid(self.img_xc, self.img_yc)
+        
+
         for key in self.ax.keys():
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=UserWarning)
@@ -315,10 +338,35 @@ class Slicer2d(Slicer):
             vslice = scipp_histogram(vslice)
             autoscale_cbar = True
 
-        for key in self.ax.keys():
-            arr = getattr(vslice, key)
-            if key == "variances":
-                arr = np.sqrt(arr)
+        # if not self.histograms[self.name][dim]:
+        #             xc = self.slider_x[self.name][dim].values
+
+        xx, yy = np.meshgrid(vslice.coords[button_dims[1]].values,
+                             vslice.coords[button_dims[0]].values)
+        # print(button_dims)
+        xflat = xx.ravel()
+        yflat = yy.ravel()
+
+        to_process = {"values": vslice.values.ravel()}
+        if "variances" in self.ax.keys():
+            to_process["variances"] = np.sqrt(vslice.variances.ravel())
+        # print(self.img_ye)
+        # print(self.img_xe)
+
+        results, y_edges, x_edges, bin_number = binned_statistic_2d(
+            x=yflat, y=xflat, values=list(to_process.values()), statistic='mean', bins=[self.img_ye, self.img_xe])
+
+        subset = np.where(np.isfinite(results[0].ravel()))
+        points = np.transpose([self.img_xg.ravel()[subset], self.img_yg.ravel()[subset]])
+
+
+
+        for i, key in enumerate(self.ax.keys()):
+            # arr = getattr(vslice, key)
+            arr = griddata(points, results[i].ravel()[subset], (self.img_xg, self.img_yg), method='nearest')
+            # arr = results[i]
+            # if key == "variances":
+            #     arr = np.sqrt(arr)
             if transp:
                 arr = arr.T
             self.im[key].set_data(arr)
