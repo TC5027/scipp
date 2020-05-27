@@ -8,7 +8,7 @@ from .render import render_plot
 from .slicer import Slicer
 from .tools import centers_to_edges, edges_to_centers, parse_params
 from ..utils import name_with_unit
-from .._scipp.core import Variable, histogram as scipp_histogram
+from .._scipp import core as sc
 
 # Other imports
 import numpy as np
@@ -258,27 +258,34 @@ class Slicer2d(Slicer):
         res = 128
         nx = res
         ny = res
-        # xmin = 0.0
-        # xmax = x[-1]
-        # dx = (extent_array[1] - extent_array[0])/float(nx)
-        self.img_xe = np.linspace(extent_array[0], extent_array[1], nx+1)
-        self.img_xc = edges_to_centers(self.img_xe)
-        self.img_ye = np.linspace(extent_array[2], extent_array[3], ny+1)
-        self.img_yc = edges_to_centers(self.img_ye)
-        # ymin = 0.0
-        # ymax = y[-1]
-        # dy = (ymax - ymin)/float(ny)
-        # ye = np.linspace(ymin, ymax, ny+1)
-        # yc = np.linspace(ymin + 0.5*dy, ymax - 0.5*dy, ny)
+        # # xmin = 0.0
+        # # xmax = x[-1]
+        # # dx = (extent_array[1] - extent_array[0])/float(nx)
+        # self.img_xe = np.linspace(extent_array[0], extent_array[1], nx+1)
+        # self.img_xc = edges_to_centers(self.img_xe)
+        # self.img_ye = np.linspace(extent_array[2], extent_array[3], ny+1)
+        # self.img_yc = edges_to_centers(self.img_ye)
+        # # ymin = 0.0
+        # # ymax = y[-1]
+        # # dy = (ymax - ymin)/float(ny)
+        # # ye = np.linspace(ymin, ymax, ny+1)
+        # # yc = np.linspace(ymin + 0.5*dy, ymax - 0.5*dy, ny)
+        # # self.img_xg, self.img_yg = np.meshgrid(self.img_xc, self.img_yc)
         # self.img_xg, self.img_yg = np.meshgrid(self.img_xc, self.img_yc)
-        self.img_xg, self.img_yg = np.meshgrid(self.img_xc, self.img_yc)
 
-        xx, yy = np.meshgrid(self.slider_x[self.name][axparams['x']["dim"]].values,
-                             self.slider_x[self.name][axparams['y']["dim"]].values)
-                             # vslice.coords[button_dims[0]].values)
-        # print(button_dims)
-        self.xflat = xx.ravel()
-        self.yflat = yy.ravel()
+        # xx, yy = np.meshgrid(self.slider_x[self.name][axparams['x']["dim"]].values,
+        #                      self.slider_x[self.name][axparams['y']["dim"]].values)
+        #                      # vslice.coords[button_dims[0]].values)
+        # # print(button_dims)
+        # self.xflat = xx.ravel()
+        # self.yflat = yy.ravel()
+        self.xbinwidth = sc.Variable(dims=[axparams['x']["dim"]], values=np.ediff1d(self.slider_x[self.name][axparams['x']["dim"]].values))
+        self.ybinwidth = sc.Variable(dims=[axparams['y']["dim"]], values=np.ediff1d(self.slider_x[self.name][axparams['y']["dim"]].values))
+
+        self.xrebin = sc.Variable(dims=[axparams['x']["dim"]], values=np.linspace(extent_array[0], extent_array[1], nx+1), unit=self.slider_x[self.name][axparams['x']["dim"]].unit)
+        self.yrebin = sc.Variable(dims=[axparams['y']["dim"]], values=np.linspace(extent_array[2], extent_array[3], ny+1), unit=self.slider_x[self.name][axparams['y']["dim"]].unit)
+        
+        # self.slider_x[self.name][axparams['x']["dim"]].values
         
 
         for key in self.ax.keys():
@@ -335,14 +342,14 @@ class Slicer2d(Slicer):
             # large.
             # Here, the data is at most 2D, so having the Variable creation
             # and broadcasting should remain cheap.
-            msk = Variable(dims=button_dims,
+            msk = sc.Variable(dims=button_dims,
                            values=np.ones(shape_list, dtype=np.int32))
-            msk *= Variable(dims=mslice.dims,
+            msk *= sc.Variable(dims=mslice.dims,
                             values=mslice.values.astype(np.int32))
 
         autoscale_cbar = False
         if vslice.unaligned is not None:
-            vslice = scipp_histogram(vslice)
+            vslice = sc.histogram(vslice)
             autoscale_cbar = True
 
         # if not self.histograms[self.name][dim]:
@@ -354,23 +361,26 @@ class Slicer2d(Slicer):
         # xflat = xx.ravel()
         # yflat = yy.ravel()
 
-        to_process = {"values": vslice.values.ravel()}
-        if "variances" in self.ax.keys():
-            to_process["variances"] = np.sqrt(vslice.variances.ravel())
-        # print(self.img_ye)
-        # print(self.img_xe)
+        # to_process = {"values": vslice.values.ravel()}
+        # if "variances" in self.ax.keys():
+        #     to_process["variances"] = np.sqrt(vslice.variances.ravel())
+        # # print(self.img_ye)
+        # # print(self.img_xe)
 
-        results, y_edges, x_edges, bin_number = binned_statistic_2d(
-            x=self.yflat, y=self.xflat, values=list(to_process.values()), statistic='mean', bins=[self.img_ye, self.img_xe])
+        # results, y_edges, x_edges, bin_number = binned_statistic_2d(
+        #     x=self.yflat, y=self.xflat, values=list(to_process.values()), statistic='mean', bins=[self.img_ye, self.img_xe])
 
-        subset = np.where(np.isfinite(results[0].ravel()))
-        points = np.transpose([self.img_xg.ravel()[subset], self.img_yg.ravel()[subset]])
+        # subset = np.where(np.isfinite(results[0].ravel()))
+        # points = np.transpose([self.img_xg.ravel()[subset], self.img_yg.ravel()[subset]])
 
-
+        vslice =  sc.rebin(vslice * self.xbinwidth * self.ybinwidth, self.xrebin.dims[0], self.xrebin)
+        # vslice =  sc.rebin(vslice * self.ybinwidth, self.yrebin.dims[0], self.yrebin)
+        # vslice =  sc.histogram(vslice, self.xrebin)
+        # vslice =  sc.rebin(vslice, self.yrebin.dims[0], self.yrebin)
 
         for i, key in enumerate(self.ax.keys()):
-            # arr = getattr(vslice, key)
-            arr = griddata(points, results[i].ravel()[subset], (self.img_xg, self.img_yg), method='nearest')
+            arr = getattr(vslice, key)
+            # arr = griddata(points, results[i].ravel()[subset], (self.img_xg, self.img_yg), method='nearest')
             # arr = results[i]
             # if key == "variances":
             #     arr = np.sqrt(arr)
