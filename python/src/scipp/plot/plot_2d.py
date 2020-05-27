@@ -255,7 +255,7 @@ class Slicer2d(Slicer):
         extent_array = np.array(list(self.extent.values())).flatten()
 
         # Image re-sampling
-        res = 512
+        res = 128
         nx = res
         ny = res
         # xmin = 0.0
@@ -272,6 +272,13 @@ class Slicer2d(Slicer):
         # yc = np.linspace(ymin + 0.5*dy, ymax - 0.5*dy, ny)
         # self.img_xg, self.img_yg = np.meshgrid(self.img_xc, self.img_yc)
         self.img_xg, self.img_yg = np.meshgrid(self.img_xc, self.img_yc)
+
+        xx, yy = np.meshgrid(self.slider_x[self.name][axparams['x']["dim"]].values,
+                             self.slider_x[self.name][axparams['y']["dim"]].values)
+                             # vslice.coords[button_dims[0]].values)
+        # print(button_dims)
+        self.xflat = xx.ravel()
+        self.yflat = yy.ravel()
         
 
         for key in self.ax.keys():
@@ -341,11 +348,11 @@ class Slicer2d(Slicer):
         # if not self.histograms[self.name][dim]:
         #             xc = self.slider_x[self.name][dim].values
 
-        xx, yy = np.meshgrid(vslice.coords[button_dims[1]].values,
-                             vslice.coords[button_dims[0]].values)
-        # print(button_dims)
-        xflat = xx.ravel()
-        yflat = yy.ravel()
+        # xx, yy = np.meshgrid(vslice.coords[button_dims[1]].values,
+        #                      vslice.coords[button_dims[0]].values)
+        # # print(button_dims)
+        # xflat = xx.ravel()
+        # yflat = yy.ravel()
 
         to_process = {"values": vslice.values.ravel()}
         if "variances" in self.ax.keys():
@@ -354,7 +361,7 @@ class Slicer2d(Slicer):
         # print(self.img_xe)
 
         results, y_edges, x_edges, bin_number = binned_statistic_2d(
-            x=yflat, y=xflat, values=list(to_process.values()), statistic='mean', bins=[self.img_ye, self.img_xe])
+            x=self.yflat, y=self.xflat, values=list(to_process.values()), statistic='mean', bins=[self.img_ye, self.img_xe])
 
         subset = np.where(np.isfinite(results[0].ravel()))
         points = np.transpose([self.img_xg.ravel()[subset], self.img_yg.ravel()[subset]])
