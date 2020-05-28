@@ -255,7 +255,7 @@ class Slicer2d(Slicer):
         extent_array = np.array(list(self.extent.values())).flatten()
 
         # Image re-sampling
-        res = 128
+        res = 256
         nx = res
         ny = res
         # # xmin = 0.0
@@ -373,10 +373,10 @@ class Slicer2d(Slicer):
         # subset = np.where(np.isfinite(results[0].ravel()))
         # points = np.transpose([self.img_xg.ravel()[subset], self.img_yg.ravel()[subset]])
 
-        vslice =  sc.rebin(vslice * self.xbinwidth * self.ybinwidth, self.xrebin.dims[0], self.xrebin)
+        # vslice =  sc.rebin(vslice * self.xbinwidth * self.ybinwidth, self.xrebin.dims[0], self.xrebin)
         # vslice =  sc.rebin(vslice * self.ybinwidth, self.yrebin.dims[0], self.yrebin)
         # vslice =  sc.histogram(vslice, self.xrebin)
-        # vslice =  sc.rebin(vslice, self.yrebin.dims[0], self.yrebin)
+        vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin)
 
         for i, key in enumerate(self.ax.keys()):
             arr = getattr(vslice, key)

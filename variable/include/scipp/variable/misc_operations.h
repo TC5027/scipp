@@ -42,6 +42,12 @@ SCIPP_VARIABLE_EXPORT Variable rebin(const VariableConstView &var,
                                      const Dim dim,
                                      const VariableConstView &oldCoord,
                                      const VariableConstView &newCoord);
+// enum class ResampleOp { Sum, Mean, Min, Max };
+SCIPP_VARIABLE_EXPORT Variable resample(const VariableConstView &var,
+                                     const Dim dim,
+                                     const VariableConstView &oldCoord,
+                                     const VariableConstView &newCoord);
+                                     // const ResampleOp op = ResampleOp::Mean);
 SCIPP_VARIABLE_EXPORT Variable resize(const VariableConstView &var,
                                       const Dim dim, const scipp::index size);
 SCIPP_VARIABLE_EXPORT Variable reverse(Variable var, const Dim dim);

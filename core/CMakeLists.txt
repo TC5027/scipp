@@ -25,6 +25,7 @@ set(INC_FILES
     include/scipp/core/element/histogram.h
     include/scipp/core/element/logical.h
     include/scipp/core/element/rebin.h
+    include/scipp/core/element/resample.h
     include/scipp/core/element/trigonometry.h
     include/scipp/core/element/unary_operations.h
     include/scipp/core/element/util.h

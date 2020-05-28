@@ -894,6 +894,11 @@ SCIPP_DATASET_EXPORT DataArray resize(const DataArrayConstView &a,
 SCIPP_DATASET_EXPORT Dataset resize(const DatasetConstView &d, const Dim dim,
                                     const scipp::index size);
 
+SCIPP_DATASET_EXPORT DataArray resample(const DataArrayConstView &a, const Dim dim,
+                                     const VariableConstView &coord);
+SCIPP_DATASET_EXPORT Dataset resample(const DatasetConstView &d, const Dim dim,
+                                   const VariableConstView &coord);
+
 [[nodiscard]] SCIPP_DATASET_EXPORT DataArray
 reciprocal(const DataArrayConstView &a);
 

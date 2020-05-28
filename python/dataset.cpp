@@ -273,6 +273,26 @@ template <class T> void bind_rebin(py::module &m) {
             .c_str());
 }
 
+template <class T> void bind_resample(py::module &m) {
+  m.def("resample",
+        py::overload_cast<const typename T::const_view_type &, const Dim,
+                          const VariableConstView &>(&resample),
+        py::arg("x"), py::arg("dim"), py::arg("bins"),
+        py::call_guard<py::gil_scoped_release>(),
+        Docstring()
+            .description("Resample a dimension of a data array.")
+            // .raises("If data cannot be rebinned, e.g., if the unit is not "
+            //         "counts, or the existing coordinate is not a bin-edge "
+            //         "coordinate.")
+            // .returns("Data rebinned according to the new coordinate.")
+            .rtype<T>()
+            .template param<T>("x", "Data to rebin.")
+            .param("dim", "Dimension to rebin over.", "Dim")
+            .param("bins", "New bin edges.", "Variable")
+            .c_str());
+}
+
+
 template <class T> void bind_realign(py::module &m) {
   // Note: adding `py::call_guard<py::gil_scoped_release>()` for this binding
   // causes a segmentation fault.
@@ -533,6 +553,9 @@ void init_dataset(py::module &m) {
 
   bind_realign<DataArray>(m);
   bind_realign<Dataset>(m);
+
+  bind_resample<DataArray>(m);
+  bind_resample<Dataset>(m);
 
   py::implicitly_convertible<DataArray, DataArrayConstView>();
   py::implicitly_convertible<DataArray, DataArrayView>();

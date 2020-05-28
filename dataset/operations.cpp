@@ -200,6 +200,30 @@ Dataset resize(const DatasetConstView &d, const Dim dim,
       d, [](auto &&... _) { return resize(_...); }, dim, size);
 }
 
+DataArray resample(const DataArrayConstView &a, const Dim dim,
+                const VariableConstView &coord) {
+  auto resampled = apply_to_data_and_drop_dim(
+      a,
+      overloaded{no_realigned_support,
+                 [](auto &&... _) { return resample(_...); }},
+      dim, a.coords()[dim], coord);
+
+  for (auto &&[name, mask] : a.masks()) {
+    if (mask.dims().contains(dim))
+      resampled.masks().set(name, resample(mask, dim, a.coords()[dim], coord));
+  }
+
+  resampled.coords().set(dim, coord);
+  return resampled;
+}
+
+Dataset resample(const DatasetConstView &d, const Dim dim,
+              const VariableConstView &coord) {
+  return apply_to_items(
+      d, [](auto &&... _) { return resample(_...); }, dim, coord);
+}
+
+
 /// Return a deep copy of a DataArray or of a DataArrayView.
 DataArray copy(const DataArrayConstView &array, const AttrPolicy attrPolicy) {
   return DataArray(array, attrPolicy);
