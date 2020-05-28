@@ -26,7 +26,8 @@ void resample_non_inner(const Dim dim, const VariableConstView &oldT,
                      const VariableConstView &newCoordT) {
   const auto oldSize = oldT.dims()[dim];
   const auto newSize = newT.dims()[dim];
-  std::vector<int> newCounts(newT.dims()[dim]);
+  Variable counts{makeVariable<T>(Dims{dim}, Shape{newSize})};
+  // std::vector<int> newCounts(newT.dims()[dim]);
 
   const auto *xold = oldCoordT.values<T>().data();
   const auto *xnew = newCoordT.values<T>().data();
@@ -46,15 +47,31 @@ void resample_non_inner(const Dim dim, const VariableConstView &oldT,
       iold++; /* old and new bins do not overlap */
     else {
       // delta is the overlap of the bins on the x axis
-      auto delta = std::min(xn_high, xo_high) - std::max(xn_low, xo_low);
+      // auto delta = std::min(xn_high, xo_high) - std::max(xn_low, xo_low);
 
-      auto owidth = xo_high - xo_low;
-      auto newvals = max(concatenate(newT.slice({dim, inew}),
-          // astype(oldT.slice({dim, iold}) * ((delta / owidth) * units::one),
-          astype(oldT.slice({dim, iold}),
-                 newT.dtype()), dim), dim);
-      newT.slice({dim, inew}) -= newT.slice({dim, inew});
-      newT.slice({dim, inew}) += newvals;
+      // auto owidth = xo_high - xo_low;
+ 
+
+      // auto newvals = max(concatenate(newT.slice({dim, inew}),
+      //     astype(oldT.slice({dim, iold}),
+      //            newT.dtype()), dim), dim);
+      // newT.slice({dim, inew}) -= newT.slice({dim, inew});
+      // newT.slice({dim, inew}) += newvals;
+ 
+      // newT.slice({dim, inew}) = newT.slice({dim, inew}) / counts.slice({dim, inew}) 
+
+      // Implement running mean
+      if (counts.slice({dim, inew}).values<T>()[0] > 0.0)
+         newT.slice({dim, inew}) /= counts.slice({dim, inew});
+      newT.slice({dim, inew}) *= counts.slice({dim, inew}) / (counts.slice({dim, inew}) + 1.0 * units::one);
+      counts.slice({dim, inew}) += 1.0 * units::one;
+      newT.slice({dim, inew}) += astype(oldT.slice({dim, iold}),
+                 newT.dtype()) / counts.slice({dim, inew});
+
+
+      // counts.slice({dim, inew}) += 1.0 * units::one;
+
+
       // newT.slice({dim, inew}) = max(concatenate(newT.slice({dim, inew}),
       //     // astype(oldT.slice({dim, iold}) * ((delta / owidth) * units::one),
       //     astype(oldT.slice({dim, iold}),
@@ -101,7 +118,7 @@ Variable resample(const VariableConstView &var, const Dim dim,
     auto dims = var.dims();
     dims.resize(dim, newCoord.dims()[dim] - 1);
     Variable resampled(var, dims);
-    // Variable counts(var, dims);
+    // Variable counts = var / var;
     if (newCoord.dims().ndim() > 1)
       throw std::runtime_error(
           "Not inner rebin works only for 1d coordinates for now.");

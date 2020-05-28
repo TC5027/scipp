@@ -34,16 +34,17 @@ static constexpr auto resample = overloaded{
           iold++; // old and new bins do not overlap
         else {
           // delta is the overlap of the bins on the x axis
-          const auto delta = std::min<double>(xn_high, xo_high) -
-                             std::max<double>(xn_low, xo_low);
-          const auto owidth = xo_high - xo_low;
-          const auto scale = delta / owidth;
+          // const auto delta = std::min<double>(xn_high, xo_high) -
+          //                    std::max<double>(xn_low, xo_low);
+          // const auto owidth = xo_high - xo_low;
+          // const auto scale = delta / owidth;
           if constexpr (is_ValueAndVariance_v<
                             std::decay_t<decltype(data_old)>>) {
-            data_new.value[inew] += data_old.value[iold] * scale;
-            data_new.variance[inew] += data_old.variance[iold] * scale;
+            data_new.value[inew] = std::max(data_new.value[inew], data_old.value[iold]);
+            if (data_new.value[inew] == data_old.value[iold])
+              data_new.variance[inew] = data_old.variance[iold];
           } else {
-            data_new[inew] += data_old[iold] * scale;
+            data_new[inew] = std::max(data_new[inew], data_old[iold]);
           }
           if (xn_high > xo_high) {
             iold++;
