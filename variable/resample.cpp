@@ -26,8 +26,8 @@ void resample_non_inner(const Dim dim, const VariableConstView &oldT,
                      const VariableConstView &newCoordT) {
   const auto oldSize = oldT.dims()[dim];
   const auto newSize = newT.dims()[dim];
-  Variable counts{makeVariable<T>(Dims{dim}, Shape{newSize})};
-  // std::vector<int> newCounts(newT.dims()[dim]);
+  Variable counter{makeVariable<T>(Dims{dim}, Shape{newSize})};
+  // std::vector<int> newcounter(newT.dims()[dim]);
 
   const auto *xold = oldCoordT.values<T>().data();
   const auto *xnew = newCoordT.values<T>().data();
@@ -58,18 +58,18 @@ void resample_non_inner(const Dim dim, const VariableConstView &oldT,
       // newT.slice({dim, inew}) -= newT.slice({dim, inew});
       // newT.slice({dim, inew}) += newvals;
  
-      // newT.slice({dim, inew}) = newT.slice({dim, inew}) / counts.slice({dim, inew}) 
+      // newT.slice({dim, inew}) = newT.slice({dim, inew}) / counter.slice({dim, inew}) 
 
       // Implement running mean
-      if (counts.slice({dim, inew}).values<T>()[0] > 0.0)
-         newT.slice({dim, inew}) /= counts.slice({dim, inew});
-      newT.slice({dim, inew}) *= counts.slice({dim, inew}) / (counts.slice({dim, inew}) + 1.0 * units::one);
-      counts.slice({dim, inew}) += 1.0 * units::one;
+      if (counter.slice({dim, inew}).values<T>()[0] > 0.0)
+         newT.slice({dim, inew}) /= counter.slice({dim, inew});
+      newT.slice({dim, inew}) *= counter.slice({dim, inew}) / (counter.slice({dim, inew}) + 1.0 * units::one);
+      counter.slice({dim, inew}) += 1.0 * units::one;
       newT.slice({dim, inew}) += astype(oldT.slice({dim, iold}),
-                 newT.dtype()) / counts.slice({dim, inew});
+                 newT.dtype()) / counter.slice({dim, inew});
 
 
-      // counts.slice({dim, inew}) += 1.0 * units::one;
+      // counter.slice({dim, inew}) += 1.0 * units::one;
 
 
       // newT.slice({dim, inew}) = max(concatenate(newT.slice({dim, inew}),
@@ -86,9 +86,9 @@ void resample_non_inner(const Dim dim, const VariableConstView &oldT,
 }
 
 namespace resample_inner_detail {
-template <class Out, class OutEdge, class In, class InEdge>
+template <class Out, class OutEdge, class In, class InEdge, class Counter>
 using args = std::tuple<span<Out>, span<const OutEdge>, span<const In>,
-                        span<const InEdge>>;
+                        span<const InEdge>, span<Counter>>;
 }
 
 Variable resample(const VariableConstView &var, const Dim dim,
@@ -98,7 +98,7 @@ Variable resample(const VariableConstView &var, const Dim dim,
   // Rebin could also implemented for count-densities. However, it may be better
   // to avoid this since it increases complexity. Instead, densities could
   // always be computed on-the-fly for visualization, if required.
-  core::expect::unit_any_of(var, {units::counts, units::one});
+  // core::expect::unit_any_of(var, {units::counts, units::one});
   if (!isBinEdge(dim, oldCoord.dims(), var.dims()))
     throw except::BinEdgeError(
         "The input does not have coordinates with bin-edges.");
@@ -106,12 +106,15 @@ Variable resample(const VariableConstView &var, const Dim dim,
   if (var.dims().inner() == dim) {
     // std::cout << "Using transform_subspan" << std::endl;
     using namespace resample_inner_detail;
+    // const auto newSize = newT.dims()[dim];
+    Variable counter{makeVariable<T>(Dims{dim}, Shape{newCoord.dims()[dim] - 1})};
+    zero(counter);
     return transform_subspan<std::tuple<
-        args<double, double, double, double>, args<float, float, float, float>,
-        args<float, double, float, double>, args<float, float, float, double>,
-        args<bool, double, bool, double>>>(var.dtype(), dim,
+        args<double, double, double, double, double>, args<float, float, float, float, float>,
+        args<float, double, float, double, float>, args<float, float, float, double, float>,
+        args<bool, double, bool, double, double>>>(var.dtype(), dim,
                                            newCoord.dims()[dim] - 1, newCoord,
-                                           var, oldCoord, core::element::resample);
+                                           var, oldCoord, counter, core::element::resample);
 
   } else {
     // std::cout << "Using rebin_non_inner" << std::endl;

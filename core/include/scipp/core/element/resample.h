@@ -17,8 +17,9 @@ namespace scipp::core::element {
 
 static constexpr auto resample = overloaded{
     [](const auto &data_new, const auto &xnew, const auto &data_old,
-       const auto &xold) {
+       const auto &xold, const auto &counter) {
       zero(data_new);
+      // zero(counter);
       const auto oldSize = scipp::size(xold) - 1;
       const auto newSize = scipp::size(xnew) - 1;
       scipp::index iold = 0;
@@ -38,14 +39,34 @@ static constexpr auto resample = overloaded{
           //                    std::max<double>(xn_low, xo_low);
           // const auto owidth = xo_high - xo_low;
           // const auto scale = delta / owidth;
+
+          //// Max implementation
+          // if constexpr (is_ValueAndVariance_v<
+          //                   std::decay_t<decltype(data_old)>>) {
+          //   data_new.value[inew] = std::max(data_new.value[inew], data_old.value[iold]);
+          //   if (data_new.value[inew] == data_old.value[iold])
+          //     data_new.variance[inew] = data_old.variance[iold];
+          // } else {
+          //   data_new[inew] = std::max(data_new[inew], data_old[iold]);
+          // }
+
+          // Mean implementation
           if constexpr (is_ValueAndVariance_v<
                             std::decay_t<decltype(data_old)>>) {
+
             data_new.value[inew] = std::max(data_new.value[inew], data_old.value[iold]);
             if (data_new.value[inew] == data_old.value[iold])
               data_new.variance[inew] = data_old.variance[iold];
           } else {
-            data_new[inew] = std::max(data_new[inew], data_old[iold]);
+            // data_new[inew] = std::max(data_new[inew], data_old[iold]);
+            if (counter[inew] > 0.0)
+               data_new[inew] /= counter[inew];
+            data_new[inew] *= counter[inew] / (counter[inew] + 1.0); // * units::one);
+            counter[inew] += 1.0; //* units::one;
+            data_new[inew] += data_old[iold] / counter[inew];
           }
+
+
           if (xn_high > xo_high) {
             iold++;
           } else {
