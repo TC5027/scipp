@@ -18,6 +18,7 @@
 #include "scipp/dataset/except.h"
 #include "scipp/dataset/map_view.h"
 #include "scipp/variable/variable.h"
+#include "scipp/variable/misc_operations.h"
 
 namespace scipp::dataset {
 
@@ -895,9 +896,11 @@ SCIPP_DATASET_EXPORT Dataset resize(const DatasetConstView &d, const Dim dim,
                                     const scipp::index size);
 
 SCIPP_DATASET_EXPORT DataArray resample(const DataArrayConstView &a, const Dim dim,
-                                     const VariableConstView &coord);
+                                     const VariableConstView &coord,
+                                     const scipp::variable::ResampleOp op = scipp::variable::ResampleOp::Sum);
 SCIPP_DATASET_EXPORT Dataset resample(const DatasetConstView &d, const Dim dim,
-                                   const VariableConstView &coord);
+                                   const VariableConstView &coord,
+                                   const scipp::variable::ResampleOp op = scipp::variable::ResampleOp::Sum);
 
 [[nodiscard]] SCIPP_DATASET_EXPORT DataArray
 reciprocal(const DataArrayConstView &a);

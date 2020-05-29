@@ -97,4 +97,13 @@ transform_subspan(const DType type, const Dim dim, const scipp::index size,
   return transform_subspan_impl<Types>(type, dim, size, op, var1, var2, var3);
 }
 
+// template <class Types, class Op>
+// [[nodiscard]] Variable
+// transform_subspan(const DType type, const Dim dim, const scipp::index size,
+//                   const VariableConstView &var1, const VariableConstView &var2,
+//                   const VariableConstView &var3, const VariableConstView &var4, Op op) {
+//   return transform_subspan_impl<Types>(type, dim, size, op, var1, var2, var3, var4);
+// }
+
+
 } // namespace scipp::variable

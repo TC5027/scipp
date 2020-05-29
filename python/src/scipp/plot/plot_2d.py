@@ -377,7 +377,7 @@ class Slicer2d(Slicer):
         # vslice =  sc.rebin(vslice * self.ybinwidth, self.yrebin.dims[0], self.yrebin)
         # vslice =  sc.histogram(vslice, self.xrebin)
         # vslice =  sc.resample(vslice, self.xrebin.dims[0], self.xrebin)
-        vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin)
+        vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, "max")
 
         for i, key in enumerate(self.ax.keys()):
             arr = getattr(vslice, key)

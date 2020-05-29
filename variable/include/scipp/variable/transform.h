@@ -913,4 +913,12 @@ transform(const VariableConstView &var1, const VariableConstView &var2,
   return detail::transform(type_tuples<Ts...>(op), op, var1, var2, var3, var4);
 }
 
+// /// Transform the data elements of four variables and return a new Variable.
+// template <class... Ts, class Op>
+// [[nodiscard]] Variable
+// transform(const VariableConstView &var1, const VariableConstView &var2,
+//           const VariableConstView &var3, const VariableConstView &var4, const VariableConstView &var5, Op op) {
+//   return detail::transform(type_tuples<Ts...>(op), op, var1, var2, var3, var4, var5);
+// }
+
 } // namespace scipp::variable

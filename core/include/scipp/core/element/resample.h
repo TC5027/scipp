@@ -17,7 +17,7 @@ namespace scipp::core::element {
 
 static constexpr auto resample = overloaded{
     [](const auto &data_new, const auto &xnew, const auto &data_old,
-       const auto &xold, const auto &counter) {
+       const auto &xold) {
       zero(data_new);
       // zero(counter);
       const auto oldSize = scipp::size(xold) - 1;
@@ -40,7 +40,7 @@ static constexpr auto resample = overloaded{
           // const auto owidth = xo_high - xo_low;
           // const auto scale = delta / owidth;
 
-          //// Max implementation
+          // // Max implementation
           // if constexpr (is_ValueAndVariance_v<
           //                   std::decay_t<decltype(data_old)>>) {
           //   data_new.value[inew] = std::max(data_new.value[inew], data_old.value[iold]);
@@ -50,20 +50,31 @@ static constexpr auto resample = overloaded{
           //   data_new[inew] = std::max(data_new[inew], data_old[iold]);
           // }
 
-          // Mean implementation
+          // // Mean implementation
+          // if constexpr (is_ValueAndVariance_v<
+          //                   std::decay_t<decltype(data_old)>>) {
+
+          //   data_new.value[inew] = std::max(data_new.value[inew], data_old.value[iold]);
+          //   if (data_new.value[inew] == data_old.value[iold])
+          //     data_new.variance[inew] = data_old.variance[iold];
+          // } else {
+          //   // data_new[inew] = std::max(data_new[inew], data_old[iold]);
+          //   if (counter[inew] > 0.0)
+          //      data_new[inew] /= counter[inew];
+          //   data_new[inew] *= counter[inew] / (counter[inew] + 1.0); // * units::one);
+          //   counter[inew] += 1.0; //* units::one;
+          //   data_new[inew] += data_old[iold] / counter[inew];
+          // }
+
+          // Sum implementation
           if constexpr (is_ValueAndVariance_v<
                             std::decay_t<decltype(data_old)>>) {
-
-            data_new.value[inew] = std::max(data_new.value[inew], data_old.value[iold]);
-            if (data_new.value[inew] == data_old.value[iold])
-              data_new.variance[inew] = data_old.variance[iold];
+            data_new.value[inew] += data_old.value[iold];
+            data_new.variance[inew] += data_old.variance[iold];
+            // if (data_new.value[inew] == data_old.value[iold])
+            //   data_new.variance[inew] = data_old.variance[iold];
           } else {
-            // data_new[inew] = std::max(data_new[inew], data_old[iold]);
-            if (counter[inew] > 0.0)
-               data_new[inew] /= counter[inew];
-            data_new[inew] *= counter[inew] / (counter[inew] + 1.0); // * units::one);
-            counter[inew] += 1.0; //* units::one;
-            data_new[inew] += data_old[iold] / counter[inew];
+            data_new[inew] += data_old[iold];
           }
 
 
@@ -80,9 +91,11 @@ static constexpr auto resample = overloaded{
       if (target_edges != edges)
         throw except::UnitError(
             "Input and output bin edges must have the same unit.");
-      if (data != units::counts && data != units::one)
-        throw except::UnitError("Only count-data (units::counts or "
-                                "units::dimensionless) can be rebinned.");
+      // if (data != units::counts && data != units::one)
+      //   throw except::UnitError("Only count-data (units::counts or "
+      //                           "units::dimensionless) can be rebinned.");
+      // if (counter != units::one)
+      //   throw except::UnitError("Counter units should be dimensionless.");
       return data;
     },
     transform_flags::expect_in_variance_if_out_variance,

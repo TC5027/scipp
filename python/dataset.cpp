@@ -10,6 +10,7 @@
 #include "scipp/dataset/map_view.h"
 #include "scipp/dataset/sort.h"
 #include "scipp/dataset/unaligned.h"
+#include "scipp/variable/misc_operations.h"
 
 #include "bind_data_access.h"
 #include "bind_operators.h"
@@ -273,11 +274,36 @@ template <class T> void bind_rebin(py::module &m) {
             .c_str());
 }
 
+namespace {
+auto resample_flag(const py::object &obj) {
+  if (obj.is_none())
+    return ResampleOp::Sum;
+  const auto &r = obj.cast<std::string>();
+  if (r == "min")
+    return ResampleOp::Min;
+  else if (r == "max")
+    return ResampleOp::Max;
+  else if (r == "sum")
+    return ResampleOp::Sum;
+  else if (r == "mean")
+    return ResampleOp::Mean;
+  else
+    throw std::runtime_error(
+        "Allowed values for `operation` are: 'min', 'max', 'sum', and 'mean'. Got " + r + ".");
+}
+} // namespace
+
 template <class T> void bind_resample(py::module &m) {
   m.def("resample",
-        py::overload_cast<const typename T::const_view_type &, const Dim,
-                          const VariableConstView &>(&resample),
-        py::arg("x"), py::arg("dim"), py::arg("bins"),
+        // py::overload_cast<const typename T::const_view_type &, const Dim,
+        //                   const VariableConstView &>(&resample,
+        //                     const py::object &resample_op),
+        [](const typename T::const_view_type &self, const Dim dim,
+                          const VariableConstView &edges,
+                          const py::object &resample_op) {
+                      return resample(self, dim, edges, resample_flag(resample_op));
+                    },
+        py::arg("x"), py::arg("dim"), py::arg("bins"), py::arg("operation") = "sum",
         py::call_guard<py::gil_scoped_release>(),
         Docstring()
             .description("Resample a dimension of a data array.")
@@ -289,6 +315,7 @@ template <class T> void bind_resample(py::module &m) {
             .template param<T>("x", "Data to rebin.")
             .param("dim", "Dimension to rebin over.", "Dim")
             .param("bins", "New bin edges.", "Variable")
+            .param("operation", "Resampling method: 'min', 'max', 'sum' or 'mean'.", "str")
             .c_str());
 }
 

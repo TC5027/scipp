@@ -201,16 +201,16 @@ Dataset resize(const DatasetConstView &d, const Dim dim,
 }
 
 DataArray resample(const DataArrayConstView &a, const Dim dim,
-                const VariableConstView &coord) {
+                const VariableConstView &coord, const scipp::variable::ResampleOp op) {
   auto resampled = apply_to_data_and_drop_dim(
       a,
       overloaded{no_realigned_support,
                  [](auto &&... _) { return resample(_...); }},
-      dim, a.coords()[dim], coord);
+      dim, a.coords()[dim], coord, op);
 
   for (auto &&[name, mask] : a.masks()) {
     if (mask.dims().contains(dim))
-      resampled.masks().set(name, resample(mask, dim, a.coords()[dim], coord));
+      resampled.masks().set(name, resample(mask, dim, a.coords()[dim], coord, op));
   }
 
   resampled.coords().set(dim, coord);
@@ -218,9 +218,9 @@ DataArray resample(const DataArrayConstView &a, const Dim dim,
 }
 
 Dataset resample(const DatasetConstView &d, const Dim dim,
-              const VariableConstView &coord) {
+              const VariableConstView &coord, const scipp::variable::ResampleOp op) {
   return apply_to_items(
-      d, [](auto &&... _) { return resample(_...); }, dim, coord);
+      d, [](auto &&... _) { return resample(_...); }, dim, coord, op);
 }
 
 
