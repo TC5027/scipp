@@ -15,9 +15,9 @@
 
 namespace scipp::core::element {
 
-static constexpr auto resample = overloaded{
+static constexpr auto resample =
     [](const auto &data_new, const auto &xnew, const auto &data_old,
-       const auto &xold) {
+       const auto &xold, auto &&lambda) {
       zero(data_new);
       // zero(counter);
       const auto oldSize = scipp::size(xold) - 1;
@@ -65,17 +65,18 @@ static constexpr auto resample = overloaded{
           //   counter[inew] += 1.0; //* units::one;
           //   data_new[inew] += data_old[iold] / counter[inew];
           // }
+          lambda(data_old, data_new, iold, inew);
 
-          // Sum implementation
-          if constexpr (is_ValueAndVariance_v<
-                            std::decay_t<decltype(data_old)>>) {
-            data_new.value[inew] += data_old.value[iold];
-            data_new.variance[inew] += data_old.variance[iold];
-            // if (data_new.value[inew] == data_old.value[iold])
-            //   data_new.variance[inew] = data_old.variance[iold];
-          } else {
-            data_new[inew] += data_old[iold];
-          }
+          // // Sum implementation
+          // if constexpr (is_ValueAndVariance_v<
+          //                   std::decay_t<decltype(data_old)>>) {
+          //   data_new.value[inew] += data_old.value[iold];
+          //   data_new.variance[inew] += data_old.variance[iold];
+          //   // if (data_new.value[inew] == data_old.value[iold])
+          //   //   data_new.variance[inew] = data_old.variance[iold];
+          // } else {
+          //   data_new[inew] += data_old[iold];
+          // }
 
 
           if (xn_high > xo_high) {
@@ -85,7 +86,52 @@ static constexpr auto resample = overloaded{
           }
         }
       }
+    };
+
+constexpr auto sum_op = [](const auto &data_old, const auto &data_new, const int iold, const int inew) {
+      if constexpr (is_ValueAndVariance_v<
+                            std::decay_t<decltype(data_old)>>) {
+            data_new.value[inew] += data_old.value[iold];
+            data_new.variance[inew] += data_old.variance[iold];
+            // if (data_new.value[inew] == data_old.value[iold])
+            //   data_new.variance[inew] = data_old.variance[iold];
+          } else {
+            data_new[inew] += data_old[iold];
+          }};
+
+constexpr auto max_op = [](const auto &data_old, const auto &data_new, const int iold, const int inew) {
+  if constexpr (is_ValueAndVariance_v<
+                            std::decay_t<decltype(data_old)>>) {
+            data_new.value[inew] = std::max(data_new.value[inew], data_old.value[iold]);
+            if (data_new.value[inew] == data_old.value[iold])
+              data_new.variance[inew] = data_old.variance[iold];
+          } else {
+            data_new[inew] = std::max(data_new[inew], data_old[iold]);
+          }};
+
+
+static constexpr auto resample_sum = overloaded{
+    [](const auto &data_new, const auto &xnew, const auto &data_old,
+       const auto &xold) {return resample(data_new, xnew, data_old, xold, sum_op);},
+    [](const units::Unit &target_edges, const units::Unit &data,
+       const units::Unit &edges) {
+      if (target_edges != edges)
+        throw except::UnitError(
+            "Input and output bin edges must have the same unit.");
+      // if (data != units::counts && data != units::one)
+      //   throw except::UnitError("Only count-data (units::counts or "
+      //                           "units::dimensionless) can be rebinned.");
+      // if (counter != units::one)
+      //   throw except::UnitError("Counter units should be dimensionless.");
+      return data;
     },
+    transform_flags::expect_in_variance_if_out_variance,
+    transform_flags::expect_no_variance_arg<1>,
+    transform_flags::expect_no_variance_arg<3>};
+
+static constexpr auto resample_max = overloaded{
+    [](const auto &data_new, const auto &xnew, const auto &data_old,
+       const auto &xold) {return resample(data_new, xnew, data_old, xold, max_op);},
     [](const units::Unit &target_edges, const units::Unit &data,
        const units::Unit &edges) {
       if (target_edges != edges)

@@ -376,7 +376,7 @@ class Slicer2d(Slicer):
         # vslice =  sc.rebin(vslice * self.xbinwidth * self.ybinwidth, self.xrebin.dims[0], self.xrebin)
         # vslice =  sc.rebin(vslice * self.ybinwidth, self.yrebin.dims[0], self.yrebin)
         # vslice =  sc.histogram(vslice, self.xrebin)
-        # vslice =  sc.resample(vslice, self.xrebin.dims[0], self.xrebin)
+        vslice =  sc.resample(vslice, self.xrebin.dims[0], self.xrebin, "sum")
         vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, "mean")
 
         for i, key in enumerate(self.ax.keys()):

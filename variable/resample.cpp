@@ -20,10 +20,10 @@ namespace scipp::variable {
 //   return edges[dim] == toMatch[dim];
 // }
 
-template <typename T, typename Lambda>
+template <typename T, typename Op>
 void do_resample_non_inner(const Dim dim, const VariableConstView &oldT,
                      Variable &newT, const VariableConstView &oldCoordT,
-                     const VariableConstView &newCoordT, Lambda &&lambda) {
+                     const VariableConstView &newCoordT, Op &&op) {
   const auto oldSize = oldT.dims()[dim];
   const auto newSize = newT.dims()[dim];
   // Variable counter{makeVariable<T>(Dims{dim}, Shape{newSize})};
@@ -76,7 +76,7 @@ void do_resample_non_inner(const Dim dim, const VariableConstView &oldT,
 
       // lambda(newT.slice({dim, inew}),astype(oldT.slice({dim, iold}),
       //            newT.dtype()));
-      lambda(newT, oldT, dim, inew, iold);
+      op(newT, oldT, dim, inew, iold);
 
 
       // counter.slice({dim, inew}) += 1.0 * units::one;
@@ -102,9 +102,9 @@ template <typename T>
 void resample_non_inner_sum(const Dim dim, const VariableConstView &oldT,
                      Variable &newT, const VariableConstView &oldCoordT,
                      const VariableConstView &newCoordT) {
-  constexpr auto lambda = [](Variable &newT_, const VariableConstView &oldT_, const Dim dim_, const int inew, const int iold){ newT_.slice({dim_, inew}) += astype(oldT_.slice({dim_, iold}),
+  constexpr auto op = [](Variable &newT_, const VariableConstView &oldT_, const Dim dim_, const int inew, const int iold){ newT_.slice({dim_, inew}) += astype(oldT_.slice({dim_, iold}),
                  newT_.dtype());};
-  return do_resample_non_inner<T>(dim, oldT, newT, oldCoordT, newCoordT, lambda);
+  return do_resample_non_inner<T>(dim, oldT, newT, oldCoordT, newCoordT, op);
 }
 
 
@@ -116,7 +116,7 @@ void resample_non_inner_max(const Dim dim, const VariableConstView &oldT,
                      Variable &newT, const VariableConstView &oldCoordT,
                      const VariableConstView &newCoordT) {
 
-  constexpr auto lambda = [](Variable &newT_, const VariableConstView &oldT_, const Dim dim_, const int inew, const int iold){
+  constexpr auto op = [](Variable &newT_, const VariableConstView &oldT_, const Dim dim_, const int inew, const int iold){
       auto newvals = max(concatenate(newT_.slice({dim_, inew}),
           astype(oldT_.slice({dim_, iold}),
                  newT_.dtype()), dim_), dim_);
@@ -126,7 +126,7 @@ void resample_non_inner_max(const Dim dim, const VariableConstView &oldT,
     // newT.slice({dim, inew}) += astype(oldT.slice({dim, iold}),
     //              newT.dtype());};
 
-  return do_resample_non_inner<T>(dim, oldT, newT, oldCoordT, newCoordT, lambda);
+  return do_resample_non_inner<T>(dim, oldT, newT, oldCoordT, newCoordT, op);
 }
 
 
@@ -149,7 +149,7 @@ void resample_non_inner(const Dim dim, const VariableConstView &var,
         resampled /= resampled_counter;
       } else{ 
         throw std::runtime_error(
-          "Unknown resammpling operation.");
+          "Unknown resampling operation.");
       }
 }
 
@@ -157,7 +157,19 @@ namespace resample_inner_detail {
 template <class Out, class OutEdge, class In, class InEdge>
 using args = std::tuple<span<Out>, span<const OutEdge>, span<const In>,
                         span<const InEdge>>;
+
+template <class Op>
+Variable resample_inner(const DType dtype, const Dim dim, const scipp::index newSize,
+  const VariableConstView &newCoord, const VariableConstView &var, const VariableConstView &oldCoord, Op &&op){
+  return transform_subspan<std::tuple<
+          args<double, double, double, double>, args<float, float, float, float>,
+          args<float, double, float, double>, args<float, float, float, double>,
+          args<bool, double, bool, double>>>(dtype, dim,
+                                             newSize, newCoord,
+                                             var, oldCoord, op);
 }
+}
+
 
 Variable resample(const VariableConstView &var, const Dim dim,
                const VariableConstView &oldCoord,
@@ -178,12 +190,21 @@ Variable resample(const VariableConstView &var, const Dim dim,
     // Variable counter{newCoord.slice({dim, 0, newCoord.dims()[dim] - 1})};
     // counter.setUnit(units::one);
     // zero(counter);
-    return transform_subspan<std::tuple<
-        args<double, double, double, double>, args<float, float, float, float>,
-        args<float, double, float, double>, args<float, float, float, double>,
-        args<bool, double, bool, double>>>(var.dtype(), dim,
-                                           newCoord.dims()[dim] - 1, newCoord,
-                                           var, oldCoord, core::element::resample);
+    if (op == ResampleOp::Sum) {
+      return resample_inner(var.dtype(), dim, newCoord.dims()[dim] - 1, newCoord,
+                                             var, oldCoord, core::element::resample_sum);
+    } else if (op == ResampleOp::Max) {
+      return resample_inner(var.dtype(), dim,
+                                             newCoord.dims()[dim] - 1, newCoord,
+                                             var, oldCoord, core::element::resample_max);
+    // } else if (op == ResampleOp::Min) {
+    //   return resample_inner(var.dtype(), dim,
+    //                                          newCoord.dims()[dim] - 1, newCoord,
+    //                                          var, oldCoord, core::element::resample_max);
+    } else {
+        throw std::runtime_error(
+          "Unknown resampling operation.");
+    }
 
   } else {
     // std::cout << "Using rebin_non_inner" << std::endl;
