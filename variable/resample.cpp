@@ -136,13 +136,21 @@ void resample_non_inner(const Dim dim, const VariableConstView &var,
                const VariableConstView &oldCoord,
                const VariableConstView &newCoord,
                const ResampleOp op) {
-      if (op == ResampleOp::Sum)
+      if (op == ResampleOp::Sum) {
         resample_non_inner_sum<double>(dim, var, resampled, oldCoord, newCoord);
-      else if (op == ResampleOp::Max)
+      } else if (op == ResampleOp::Max) {
         resample_non_inner_max<double>(dim, var, resampled, oldCoord, newCoord);
-      else
+      } else if (op == ResampleOp::Mean) {
+        Variable counter = var / var;
+        Variable resampled_counter(resampled);
+        resampled_counter.setUnit(units::one);
+        resample_non_inner_sum<double>(dim, counter, resampled_counter, oldCoord, newCoord);
+        resample_non_inner_sum<double>(dim, var, resampled, oldCoord, newCoord);
+        resampled /= resampled_counter;
+      } else{ 
         throw std::runtime_error(
           "Unknown resammpling operation.");
+      }
 }
 
 namespace resample_inner_detail {
