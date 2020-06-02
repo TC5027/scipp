@@ -104,6 +104,7 @@ void resample_non_inner_sum(const Dim dim, const VariableConstView &oldT,
                      const VariableConstView &newCoordT) {
   constexpr auto op = [](Variable &newT_, const VariableConstView &oldT_, const Dim dim_, const int inew, const int iold){ newT_.slice({dim_, inew}) += astype(oldT_.slice({dim_, iold}),
                  newT_.dtype());};
+  // newT *= 0.0 * units::one;
   return do_resample_non_inner<T>(dim, oldT, newT, oldCoordT, newCoordT, op);
 }
 
@@ -117,15 +118,45 @@ void resample_non_inner_max(const Dim dim, const VariableConstView &oldT,
                      const VariableConstView &newCoordT) {
 
   constexpr auto op = [](Variable &newT_, const VariableConstView &oldT_, const Dim dim_, const int inew, const int iold){
-      auto newvals = max(concatenate(newT_.slice({dim_, inew}),
+      // auto newvals = max(concatenate(newT_.slice({dim_, inew}),
+      //     astype(oldT_.slice({dim_, iold}),
+      //            newT_.dtype()), dim_), dim_);
+      // // newT.slice({dim, inew}) -= newT.slice({dim, inew});
+      // newT_.slice({dim_, inew}) += newvals - newT_.slice({dim_, inew});};
+
+      newT_.slice({dim_, inew}).assign(max(concatenate(newT_.slice({dim_, inew}),
           astype(oldT_.slice({dim_, iold}),
-                 newT_.dtype()), dim_), dim_);
-      // newT.slice({dim, inew}) -= newT.slice({dim, inew});
-      newT_.slice({dim_, inew}) += newvals - newT_.slice({dim_, inew});};
+                 newT_.dtype()), dim_), dim_));
 
     // newT.slice({dim, inew}) += astype(oldT.slice({dim, iold}),
     //              newT.dtype());};
+    };
+  newT *= 0.0 * units::one;
+  newT -= std::numeric_limits<T>::infinity() * newT.unit();
+  return do_resample_non_inner<T>(dim, oldT, newT, oldCoordT, newCoordT, op);
+}
 
+template <typename T>
+void resample_non_inner_min(const Dim dim, const VariableConstView &oldT,
+                     Variable &newT, const VariableConstView &oldCoordT,
+                     const VariableConstView &newCoordT) {
+
+  constexpr auto op = [](Variable &newT_, const VariableConstView &oldT_, const Dim dim_, const int inew, const int iold){
+      // auto newvals = min(concatenate(newT_.slice({dim_, inew}),
+      //     astype(oldT_.slice({dim_, iold}),
+      //            newT_.dtype()), dim_), dim_);
+      // newT.slice({dim, inew}) -= newT.slice({dim, inew});
+      newT_.slice({dim_, inew}).assign(min(concatenate(newT_.slice({dim_, inew}),
+          astype(oldT_.slice({dim_, iold}),
+                 newT_.dtype()), dim_), dim_));
+                  // newvals - newT_.slice({dim_, inew});};
+
+    // newT.slice({dim, inew}) += astype(oldT.slice({dim, iold}),
+    //              newT.dtype());};
+    };
+
+  newT *= 0.0 * units::one;
+  newT += std::numeric_limits<T>::infinity() * newT.unit();
   return do_resample_non_inner<T>(dim, oldT, newT, oldCoordT, newCoordT, op);
 }
 
@@ -137,15 +168,19 @@ void resample_non_inner(const Dim dim, const VariableConstView &var,
                const VariableConstView &newCoord,
                const ResampleOp op) {
       if (op == ResampleOp::Sum) {
-        resample_non_inner_sum<double>(dim, var, resampled, oldCoord, newCoord);
+        resample_non_inner_sum<T>(dim, var, resampled, oldCoord, newCoord);
       } else if (op == ResampleOp::Max) {
-        resample_non_inner_max<double>(dim, var, resampled, oldCoord, newCoord);
+        resample_non_inner_max<T>(dim, var, resampled, oldCoord, newCoord);
+      } else if (op == ResampleOp::Min) {
+        resample_non_inner_min<T>(dim, var, resampled, oldCoord, newCoord);
       } else if (op == ResampleOp::Mean) {
-        Variable counter = var / var;
+        // Variable counter(var, var.dims());
+        auto counter = makeVariable<T>(var.dims());
+        counter += 1.0 * units::one;
         Variable resampled_counter(resampled);
         resampled_counter.setUnit(units::one);
-        resample_non_inner_sum<double>(dim, counter, resampled_counter, oldCoord, newCoord);
-        resample_non_inner_sum<double>(dim, var, resampled, oldCoord, newCoord);
+        resample_non_inner_sum<T>(dim, counter, resampled_counter, oldCoord, newCoord);
+        resample_non_inner_sum<T>(dim, var, resampled, oldCoord, newCoord);
         resampled /= resampled_counter;
       } else{ 
         throw std::runtime_error(
@@ -175,13 +210,10 @@ Variable resample(const VariableConstView &var, const Dim dim,
                const VariableConstView &oldCoord,
                const VariableConstView &newCoord,
                const ResampleOp op) {
-  // Rebin could also implemented for count-densities. However, it may be better
-  // to avoid this since it increases complexity. Instead, densities could
-  // always be computed on-the-fly for visualization, if required.
-  // core::expect::unit_any_of(var, {units::counts, units::one});
+  // So far, resample only accepts data with bin edges.
   if (!isBinEdge(dim, oldCoord.dims(), var.dims()))
     throw except::BinEdgeError(
-        "The input does not have coordinates with bin-edges.");
+        "Resample can only be used on a bin-edge coordinate.");
 
   if (var.dims().inner() == dim) {
     // std::cout << "Using transform_subspan" << std::endl;
@@ -197,10 +229,18 @@ Variable resample(const VariableConstView &var, const Dim dim,
       return resample_inner(var.dtype(), dim,
                                              newCoord.dims()[dim] - 1, newCoord,
                                              var, oldCoord, core::element::resample_max);
-    // } else if (op == ResampleOp::Min) {
-    //   return resample_inner(var.dtype(), dim,
-    //                                          newCoord.dims()[dim] - 1, newCoord,
-    //                                          var, oldCoord, core::element::resample_max);
+    } else if (op == ResampleOp::Min) {
+      return resample_inner(var.dtype(), dim,
+                                             newCoord.dims()[dim] - 1, newCoord,
+                                             var, oldCoord, core::element::resample_min);
+    } else if (op == ResampleOp::Mean) {
+      Variable counter = resample_inner(var.dtype(), dim, newCoord.dims()[dim] - 1, newCoord,
+                                             Variable(var.dtype(), var.dims()) + 1.0*units::one, oldCoord, core::element::resample_sum);
+      // Variable resampled_counter(resampled);
+      // counter.setUnit(units::one);
+      return resample_inner(var.dtype(), dim,
+                                             newCoord.dims()[dim] - 1, newCoord,
+                                             var, oldCoord, core::element::resample_sum) / counter;
     } else {
         throw std::runtime_error(
           "Unknown resampling operation.");
@@ -211,6 +251,7 @@ Variable resample(const VariableConstView &var, const Dim dim,
     auto dims = var.dims();
     dims.resize(dim, newCoord.dims()[dim] - 1);
     Variable resampled(var, dims);
+    // resampled *= 0.0 * units::one;
     // Variable counts = var / var;
     if (newCoord.dims().ndim() > 1)
       throw std::runtime_error(

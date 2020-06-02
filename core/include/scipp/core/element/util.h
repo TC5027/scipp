@@ -12,6 +12,7 @@
 #include "scipp/units/unit.h"
 
 #include <stddef.h>
+#include <limits>
 
 namespace scipp::core::element {
 
@@ -35,10 +36,36 @@ template <class T> void zero(const scipp::span<T> &data) {
     x = 0.0;
 }
 
+/// Set the elements referenced by a span to +Inf
+template <class T> void inf(const scipp::span<T> &data) {
+auto posinf = std::numeric_limits<T>::infinity();
+  for (auto &x : data)
+    x = posinf;
+}
+
+/// Set the elements referenced by a span to -Inf
+template <class T> void ninf(const scipp::span<T> &data) {
+auto neginf = - std::numeric_limits<T>::infinity();
+  for (auto &x : data)
+    x = neginf;
+}
+
 /// Set the elements references by the spans for values and variances to 0
 template <class T> void zero(const core::ValueAndVariance<span<T>> &data) {
   zero(data.value);
   zero(data.variance);
+}
+
+/// Set the elements references by the spans for values and variances to +Inf
+template <class T> void inf(const core::ValueAndVariance<span<T>> &data) {
+  inf(data.value);
+  inf(data.variance);
+}
+
+/// Set the elements references by the spans for values and variances to -Inf
+template <class T> void ninf(const core::ValueAndVariance<span<T>> &data) {
+  ninf(data.value);
+  ninf(data.variance);
 }
 
 } // namespace scipp::core::element

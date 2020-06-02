@@ -100,6 +100,9 @@ class Slicer2d(Slicer):
         self.vminmax = {"vmin": vmin, "vmax": vmax}
         self.global_vmin = np.Inf
         self.global_vmax = np.NINF
+        self.image_resolution = 0.64 * config.plot.dpi / 96.0
+        self.image_resolution = [int(self.image_resolution * config.plot.width),
+        int(self.image_resolution * config.plot.height)]
 
         # Get or create matplotlib axes
         self.fig = None
@@ -255,9 +258,10 @@ class Slicer2d(Slicer):
         extent_array = np.array(list(self.extent.values())).flatten()
 
         # Image re-sampling
-        res = 512
-        nx = res
-        ny = res
+        # res = 128
+        # nx = int(self.image_resolution * config.plot.width)
+        # ny = int(self.image_resolution * config.plot.height)
+        # print(nx, ny)
         # # xmin = 0.0
         # # xmax = x[-1]
         # # dx = (extent_array[1] - extent_array[0])/float(nx)
@@ -279,11 +283,11 @@ class Slicer2d(Slicer):
         # # print(button_dims)
         # self.xflat = xx.ravel()
         # self.yflat = yy.ravel()
-        self.xbinwidth = sc.Variable(dims=[axparams['x']["dim"]], values=np.ediff1d(self.slider_x[self.name][axparams['x']["dim"]].values))
-        self.ybinwidth = sc.Variable(dims=[axparams['y']["dim"]], values=np.ediff1d(self.slider_x[self.name][axparams['y']["dim"]].values))
+        # self.xbinwidth = sc.Variable(dims=[axparams['x']["dim"]], values=np.ediff1d(self.slider_x[self.name][axparams['x']["dim"]].values))
+        # self.ybinwidth = sc.Variable(dims=[axparams['y']["dim"]], values=np.ediff1d(self.slider_x[self.name][axparams['y']["dim"]].values))
 
-        self.xrebin = sc.Variable(dims=[axparams['x']["dim"]], values=np.linspace(extent_array[0], extent_array[1], nx+1), unit=self.slider_x[self.name][axparams['x']["dim"]].unit)
-        self.yrebin = sc.Variable(dims=[axparams['y']["dim"]], values=np.linspace(extent_array[2], extent_array[3], ny+1), unit=self.slider_x[self.name][axparams['y']["dim"]].unit)
+        self.xrebin = sc.Variable(dims=[axparams['x']["dim"]], values=np.linspace(extent_array[0], extent_array[1], self.image_resolution[0]+1), unit=self.slider_x[self.name][axparams['x']["dim"]].unit)
+        self.yrebin = sc.Variable(dims=[axparams['y']["dim"]], values=np.linspace(extent_array[2], extent_array[3], self.image_resolution[1]+1), unit=self.slider_x[self.name][axparams['y']["dim"]].unit)
         
         # self.slider_x[self.name][axparams['x']["dim"]].values
         
@@ -376,15 +380,35 @@ class Slicer2d(Slicer):
         # vslice =  sc.rebin(vslice * self.xbinwidth * self.ybinwidth, self.xrebin.dims[0], self.xrebin)
         # vslice =  sc.rebin(vslice * self.ybinwidth, self.yrebin.dims[0], self.yrebin)
         # vslice =  sc.histogram(vslice, self.xrebin)
-        vslice =  sc.resample(vslice, self.xrebin.dims[0], self.xrebin, "sum")
-        vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, "mean")
+
+        # print(vslice.variances)
+        if not self.histograms[self.name][self.xrebin.dims[0]] or not self.histograms[self.name][self.yrebin.dims[0]]:
+            vslice = vslice.copy()
+        if not self.histograms[self.name][self.xrebin.dims[0]]:
+            xe = centers_to_edges(vslice.coords[self.xrebin.dims[0]].values)
+            # # sc.reshape(vslice.coords[self.xrebin.dims[0]], self.xrebin.dims, [vslice.coords[self.xrebin.dims[0]].shape[0] + 1 ])
+            # print(vslice.coords[self.xrebin.dims[0]].shape)
+            # # sc.reshape(vslice.coords[self.xrebin.dims[0]], ['x'], [vslice.coords[self.xrebin.dims[0]].shape[0] + 1 ])
+            # print(vslice.coords[self.xrebin.dims[0]].shape[0] + 1)
+            # print(len(xe), vslice.coords[self.xrebin.dims[0]].shape, len(vslice.coords[self.xrebin.dims[0]].values))
+            # vslice = vslice.copy()
+            vslice.coords[self.xrebin.dims[0]] = sc.Variable(dims=self.xrebin.dims, values=xe, unit=vslice.coords[self.xrebin.dims[0]].unit)
+        if not self.histograms[self.name][self.yrebin.dims[0]]:
+            ye = centers_to_edges(vslice.coords[self.yrebin.dims[0]].values)
+            # vslice = vslice.copy()
+            vslice.coords[self.yrebin.dims[0]] = sc.Variable(dims=self.yrebin.dims, values=ye, unit=vslice.coords[self.yrebin.dims[0]].unit)
+            # sc.reshape(vslice.coords[self.yrebin.dims[0]], self.yrebin.dims, [vslice.coords[self.yrebin.dims[0]].shape[0] + 1])
+            # vslice.coords[self.yrebin.dims[0]].values = ye
+        vslice =  sc.resample(vslice, self.xrebin.dims[0], self.xrebin, "max")
+        vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, "max")
+
 
         for i, key in enumerate(self.ax.keys()):
             arr = getattr(vslice, key)
             # arr = griddata(points, results[i].ravel()[subset], (self.img_xg, self.img_yg), method='nearest')
             # arr = results[i]
-            # if key == "variances":
-            #     arr = np.sqrt(arr)
+            if key == "variances":
+                arr = np.sqrt(arr)
             if transp:
                 arr = arr.T
             self.im[key].set_data(arr)
