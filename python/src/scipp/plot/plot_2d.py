@@ -335,6 +335,51 @@ class Slicer2d(Slicer):
         slice_dims = vslice.dims
         transp = slice_dims != button_dims
 
+        # if self.params["masks"][self.name]["show"]:
+        #     shape_list = [self.shapes[self.name][bdim] for bdim in button_dims]
+        #     # Use scipp's automatic broadcast functionality to broadcast
+        #     # lower dimension masks to higher dimensions.
+        #     # TODO: creating a Variable here could become expensive when
+        #     # sliders are being used. We could consider performing the
+        #     # automatic broadcasting once and store it in the Slicer class,
+        #     # but this could create a large memory overhead if the data is
+        #     # large.
+        #     # Here, the data is at most 2D, so having the Variable creation
+        #     # and broadcasting should remain cheap.
+        #     msk = sc.Variable(dims=button_dims,
+        #                    values=np.ones(shape_list, dtype=np.int32))
+        #     msk *= sc.Variable(dims=mslice.dims,
+        #                     values=mslice.values.astype(np.int32))
+        #     # for dim in msk.dims:
+        #     #     if not self.histograms[self.name][dim]:
+
+
+        autoscale_cbar = False
+        if vslice.unaligned is not None:
+            vslice = sc.histogram(vslice)
+            autoscale_cbar = True
+
+        # Check for non bin-edge coords
+        if (not self.histograms[self.name][self.xrebin.dims[0]] or
+            not self.histograms[self.name][self.yrebin.dims[0]]):
+            vslice = vslice.copy()
+        if not self.histograms[self.name][self.xrebin.dims[0]]:
+            xe = centers_to_edges(vslice.coords[self.xrebin.dims[0]].values)
+            vslice.coords[self.xrebin.dims[0]] = sc.Variable(
+                dims=self.xrebin.dims, values=xe,
+                unit=vslice.coords[self.xrebin.dims[0]].unit)
+        if not self.histograms[self.name][self.yrebin.dims[0]]:
+            ye = centers_to_edges(vslice.coords[self.yrebin.dims[0]].values)
+            vslice.coords[self.yrebin.dims[0]] = sc.Variable(
+                dims=self.yrebin.dims, values=ye,
+                unit=vslice.coords[self.yrebin.dims[0]].unit)
+        # Resample data to image pixels to account for non-regular bins
+        print(vslice.masks["mask1"].shape)
+        vslice =  sc.resample(vslice, self.xrebin.dims[0], self.xrebin, "max")
+        print(vslice.masks["mask1"].shape)
+        # print(
+        # vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, "max")
+
         if self.params["masks"][self.name]["show"]:
             shape_list = [self.shapes[self.name][bdim] for bdim in button_dims]
             # Use scipp's automatic broadcast functionality to broadcast
@@ -350,63 +395,12 @@ class Slicer2d(Slicer):
                            values=np.ones(shape_list, dtype=np.int32))
             msk *= sc.Variable(dims=mslice.dims,
                             values=mslice.values.astype(np.int32))
-
-        autoscale_cbar = False
-        if vslice.unaligned is not None:
-            vslice = sc.histogram(vslice)
-            autoscale_cbar = True
-
-        # if not self.histograms[self.name][dim]:
-        #             xc = self.slider_x[self.name][dim].values
-
-        # xx, yy = np.meshgrid(vslice.coords[button_dims[1]].values,
-        #                      vslice.coords[button_dims[0]].values)
-        # # print(button_dims)
-        # xflat = xx.ravel()
-        # yflat = yy.ravel()
-
-        # to_process = {"values": vslice.values.ravel()}
-        # if "variances" in self.ax.keys():
-        #     to_process["variances"] = np.sqrt(vslice.variances.ravel())
-        # # print(self.img_ye)
-        # # print(self.img_xe)
-
-        # results, y_edges, x_edges, bin_number = binned_statistic_2d(
-        #     x=self.yflat, y=self.xflat, values=list(to_process.values()), statistic='mean', bins=[self.img_ye, self.img_xe])
-
-        # subset = np.where(np.isfinite(results[0].ravel()))
-        # points = np.transpose([self.img_xg.ravel()[subset], self.img_yg.ravel()[subset]])
-
-        # vslice =  sc.rebin(vslice * self.xbinwidth * self.ybinwidth, self.xrebin.dims[0], self.xrebin)
-        # vslice =  sc.rebin(vslice * self.ybinwidth, self.yrebin.dims[0], self.yrebin)
-        # vslice =  sc.histogram(vslice, self.xrebin)
-
-        # print(vslice.variances)
-        if not self.histograms[self.name][self.xrebin.dims[0]] or not self.histograms[self.name][self.yrebin.dims[0]]:
-            vslice = vslice.copy()
-        if not self.histograms[self.name][self.xrebin.dims[0]]:
-            xe = centers_to_edges(vslice.coords[self.xrebin.dims[0]].values)
-            # # sc.reshape(vslice.coords[self.xrebin.dims[0]], self.xrebin.dims, [vslice.coords[self.xrebin.dims[0]].shape[0] + 1 ])
-            # print(vslice.coords[self.xrebin.dims[0]].shape)
-            # # sc.reshape(vslice.coords[self.xrebin.dims[0]], ['x'], [vslice.coords[self.xrebin.dims[0]].shape[0] + 1 ])
-            # print(vslice.coords[self.xrebin.dims[0]].shape[0] + 1)
-            # print(len(xe), vslice.coords[self.xrebin.dims[0]].shape, len(vslice.coords[self.xrebin.dims[0]].values))
-            # vslice = vslice.copy()
-            vslice.coords[self.xrebin.dims[0]] = sc.Variable(dims=self.xrebin.dims, values=xe, unit=vslice.coords[self.xrebin.dims[0]].unit)
-        if not self.histograms[self.name][self.yrebin.dims[0]]:
-            ye = centers_to_edges(vslice.coords[self.yrebin.dims[0]].values)
-            # vslice = vslice.copy()
-            vslice.coords[self.yrebin.dims[0]] = sc.Variable(dims=self.yrebin.dims, values=ye, unit=vslice.coords[self.yrebin.dims[0]].unit)
-            # sc.reshape(vslice.coords[self.yrebin.dims[0]], self.yrebin.dims, [vslice.coords[self.yrebin.dims[0]].shape[0] + 1])
-            # vslice.coords[self.yrebin.dims[0]].values = ye
-        vslice =  sc.resample(vslice, self.xrebin.dims[0], self.xrebin, "max")
-        vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, "max")
+            # for dim in msk.dims:
+            #     if not self.histograms[self.name][dim]:
 
 
         for i, key in enumerate(self.ax.keys()):
             arr = getattr(vslice, key)
-            # arr = griddata(points, results[i].ravel()[subset], (self.img_xg, self.img_yg), method='nearest')
-            # arr = results[i]
             if key == "variances":
                 arr = np.sqrt(arr)
             if transp:
