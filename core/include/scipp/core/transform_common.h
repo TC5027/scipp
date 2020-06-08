@@ -44,6 +44,11 @@ using arithmetic_and_matrix_type_pairs = decltype(
     std::tuple_cat(std::declval<arithmetic_type_pairs>(),
                    std::tuple<std::pair<Eigen::Vector3d, Eigen::Vector3d>>()));
 
+// using arithmetic_and_matrix_type_pairs_with_bool = decltype(
+//     std::tuple_cat(std::declval<arithmetic_type_pairs>(),
+//                    std::tuple<std::pair<Eigen::Vector3d, Eigen::Vector3d>>(),
+//                    std::declval<pair_numerical_with_t<bool>>()));
+
 static constexpr auto dimensionless_unit_check =
     [](units::Unit &varUnit, const units::Unit &otherUnit) {
       expect::equals(varUnit, units::dimensionless);

@@ -10,7 +10,7 @@
 #include "scipp/variable/misc_operations.h"
 #include "scipp/variable/rebin.h"
 #include "scipp/variable/transform_subspan.h"
-#include <iostream>
+// #include <iostream>
 
 namespace scipp::variable {
 
@@ -77,7 +77,7 @@ Variable rebin(const VariableConstView &var, const Dim dim,
         "The input does not have coordinates with bin-edges.");
 
   if (var.dims().inner() == dim) {
-    std::cout << "Using transform_subspan" << std::endl;
+    // std::cout << "Using transform_subspan" << std::endl;
     using namespace rebin_inner_detail;
     return transform_subspan<std::tuple<
         args<double, double, double, double>, args<float, float, float, float>,
@@ -87,7 +87,7 @@ Variable rebin(const VariableConstView &var, const Dim dim,
                                            var, oldCoord, core::element::rebin);
 
   } else {
-    std::cout << "Using rebin_non_inner" << std::endl;
+    // std::cout << "Using rebin_non_inner" << std::endl;
     auto dims = var.dims();
     dims.resize(dim, newCoord.dims()[dim] - 1);
     Variable rebinned(var, dims);

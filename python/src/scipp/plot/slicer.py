@@ -101,12 +101,8 @@ class Slicer:
             self.params["masks"][name]["show"] = (
                 self.params["masks"][name]["show"] and len(array.masks) > 0)
             if self.params["masks"][name]["show"] and self.masks is None:
-                masks = combine_masks(array.masks, array.dims,
+                self.masks = combine_masks(array.masks, array.dims,
                                            array.shape)
-                self.masks = sc.DataArray()
-                for dim in masks.dims:
-                    self.masks.coords[dim] = array.coords[dim]
-                self.masks["masks"] = masks
 
             # TODO: 2D coordinates will not be supported by this
             self.shapes[name] = dict(zip(array.dims, array.shape))

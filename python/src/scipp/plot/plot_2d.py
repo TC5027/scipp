@@ -315,19 +315,19 @@ class Slicer2d(Slicer):
         Slice data according to new slider value.
         """
         vslice = self.data_array
-        if self.params["masks"][self.name]["show"]:
-            mslice = self.masks
+        # if self.params["masks"][self.name]["show"]:
+        #     mslice = self.masks
         # Slice along dimensions with active sliders
         button_dims = [None, None]
         for dim, val in self.slider.items():
             if not val.disabled:
                 self.lab[dim].value = self.make_slider_label(
                     self.slider_x[self.name][dim], val.value)
-                vslice = vslice[val.dim, val.value]
-                # At this point, after masks were combined, all their
-                # dimensions should be contained in the data_array.dims.
-                if self.params["masks"][self.name]["show"]:
-                    mslice = mslice[val.dim, val.value]
+                vslice = vslice[val.dim, val.value:val.value+1]
+                # # At this point, after masks were combined, all their
+                # # dimensions should be contained in the data_array.dims.
+                # if self.params["masks"][self.name]["show"]:
+                #     mslice = mslice[val.dim, val.value]
             else:
                 button_dims[self.buttons[dim].value.lower() == "x"] = val.dim
 
@@ -378,10 +378,12 @@ class Slicer2d(Slicer):
         vslice =  sc.resample(vslice, self.xrebin.dims[0], self.xrebin, "max")
         print(vslice.masks["mask1"].shape)
         # print(
-        # vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, "max")
+        vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, "max")
 
         if self.params["masks"][self.name]["show"]:
-            shape_list = [self.shapes[self.name][bdim] for bdim in button_dims]
+            # shape_list = [self.shapes[self.name][bdim] for bdim in button_dims]
+            mslice = sc.combine_masks(vslice.masks, vslice.dims,
+                                           vslice.shape)
             # Use scipp's automatic broadcast functionality to broadcast
             # lower dimension masks to higher dimensions.
             # TODO: creating a Variable here could become expensive when
@@ -391,8 +393,8 @@ class Slicer2d(Slicer):
             # large.
             # Here, the data is at most 2D, so having the Variable creation
             # and broadcasting should remain cheap.
-            msk = sc.Variable(dims=button_dims,
-                           values=np.ones(shape_list, dtype=np.int32))
+            msk = sc.Variable(dims=vslice.dims,
+                           values=np.ones(vslice.shape, dtype=np.int32))
             msk *= sc.Variable(dims=mslice.dims,
                             values=mslice.values.astype(np.int32))
             # for dim in msk.dims:
