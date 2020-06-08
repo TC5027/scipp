@@ -374,11 +374,12 @@ class Slicer2d(Slicer):
                 dims=self.yrebin.dims, values=ye,
                 unit=vslice.coords[self.yrebin.dims[0]].unit)
         # Resample data to image pixels to account for non-regular bins
-        print(vslice.masks["mask1"].shape)
-        vslice =  sc.resample(vslice, self.xrebin.dims[0], self.xrebin, "max")
-        print(vslice.masks["mask1"].shape)
+        op = "mean"
+        # print(vslice.masks["mask1"].shape)
+        vslice =  sc.resample(vslice, self.xrebin.dims[0], self.xrebin, op)
+        # print(vslice.masks["mask1"].shape)
         # print(
-        vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, "max")
+        vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, op)
 
         if self.params["masks"][self.name]["show"]:
             # shape_list = [self.shapes[self.name][bdim] for bdim in button_dims]

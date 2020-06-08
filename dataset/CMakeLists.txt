@@ -2,8 +2,15 @@
 # contributors (https://github.com/scipp)
 set(TARGET_NAME "scipp-dataset")
 set(INC_FILES
-    include/scipp/dataset/dataset.h include/scipp/dataset/dataset_index.h
-    include/scipp/dataset/except.h include/scipp/dataset/counts.h
+    include/scipp/dataset/choose.h
+    include/scipp/dataset/counts.h
+    include/scipp/dataset/dataset.h
+    include/scipp/dataset/dataset_index.h
+    include/scipp/dataset/except.h
+    include/scipp/dataset/math.h
+    include/scipp/dataset/rebin.h
+    include/scipp/dataset/reduction.h
+    include/scipp/dataset/shape.h
     include/scipp/dataset/sort.h
 )
 
@@ -18,7 +25,11 @@ set(SRC_FILES
     groupby.cpp
     histogram.cpp
     map_view.cpp
+    math.cpp
     operations.cpp
+    rebin.cpp
+    reduction.cpp
+    shape.cpp
     sort.cpp
     string.cpp
     unaligned.cpp

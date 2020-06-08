@@ -9,15 +9,18 @@ set(INC_FILES
     include/scipp/variable/except.h
     include/scipp/variable/indexed_slice_view.h
     include/scipp/variable/logical.h
+    include/scipp/variable/math.h
     include/scipp/variable/misc_operations.h
     include/scipp/variable/operations.h
     include/scipp/variable/rebin.h
     include/scipp/variable/reduction.h
+    include/scipp/variable/shape.h
     include/scipp/variable/string.h
     include/scipp/variable/subspan_view.h
     include/scipp/variable/transform.h
     include/scipp/variable/transform_subspan.h
     include/scipp/variable/trigonometry.h
+    include/scipp/variable/util.h
     include/scipp/variable/variable_concept.h
     include/scipp/variable/variable.h
     include/scipp/variable/variable_keyword_arg_constructor.h
@@ -32,14 +35,17 @@ set(SRC_FILES
     except.cpp
     inplace_arithmetic.cpp
     logical.cpp
+    math.cpp
     operations.cpp
     rebin.cpp
     reduction.cpp
     resample.cpp
+    shape.cpp
     string.cpp
     subspan_view.cpp
     trigonometry.cpp
     type_conversion.cpp
+    util.cpp
     variable_concept.cpp
     variable.cpp
     variable_instantiate_basic.cpp

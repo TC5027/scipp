@@ -8,6 +8,8 @@
 #include "scipp/dataset/except.h"
 #include "scipp/dataset/histogram.h"
 #include "scipp/dataset/map_view.h"
+#include "scipp/dataset/math.h"
+#include "scipp/dataset/rebin.h"
 #include "scipp/dataset/sort.h"
 #include "scipp/dataset/unaligned.h"
 #include "scipp/variable/misc_operations.h"
@@ -56,7 +58,14 @@ void bind_mutable_view(py::module &m, const std::string &name) {
            py::keep_alive<0, 1>())
       .def("__setitem__",
            [](T &self, const typename T::key_type key,
-              const VariableConstView &var) { self.set(key, var); })
+              const VariableConstView &var) {
+             if (self.contains(key) &&
+                 self[key].dims().ndim() == var.dims().ndim() &&
+                 self[key].dims().contains(var.dims()))
+               self[key].assign(var);
+             else
+               self.set(key, var);
+           })
       // This additional setitem allows us to do things like
       // d.attrs["a"] = scipp.detail.move(scipp.Variable())
       .def("__setitem__",

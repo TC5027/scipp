@@ -5,6 +5,7 @@ add_dependencies(all-tests ${TARGET_NAME})
 add_executable(
   ${TARGET_NAME} EXCLUDE_FROM_ALL
   attributes_test.cpp
+  choose_test.cpp
   concatenate_test.cpp
   coords_view_test.cpp
   copy_test.cpp
@@ -22,6 +23,7 @@ add_executable(
   except_test.cpp
   groupby_test.cpp
   histogram_test.cpp
+  math_test.cpp
   masks_view_test.cpp
   mean_test.cpp
   merge_test.cpp

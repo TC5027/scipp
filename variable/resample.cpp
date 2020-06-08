@@ -10,6 +10,7 @@
 #include "scipp/variable/misc_operations.h"
 #include "scipp/variable/reduction.h"
 #include "scipp/variable/rebin.h"
+#include "scipp/variable/shape.h"
 #include "scipp/variable/transform_subspan.h"
 #include <iostream>
 
@@ -19,6 +20,9 @@ namespace scipp::variable {
 //   edges.resize(dim, edges[dim] - 1);
 //   return edges[dim] == toMatch[dim];
 // }
+
+// constexpr auto logical_or_op = [](Variable &newT_, const VariableConstView &oldT_, const Dim dim_, const int inew, const int iold){ newT_.slice({dim_, inew}) |= astype(oldT_.slice({dim_, iold}),
+//                  newT_.dtype());};
 
 template <typename T, typename Op>
 void do_resample_non_inner(const Dim dim, const VariableConstView &oldT,
@@ -35,6 +39,8 @@ void do_resample_non_inner(const Dim dim, const VariableConstView &oldT,
   // coord is 1D.
   int iold = 0;
   int inew = 0;
+  // const bool is_bool = newT.dtype() == dtype<bool>;
+  // std::cout << is_bool << std::endl;
   while ((iold < oldSize) && (inew < newSize)) {
     auto xo_low = xold[iold];
     auto xo_high = xold[iold + 1];
@@ -76,6 +82,9 @@ void do_resample_non_inner(const Dim dim, const VariableConstView &oldT,
 
       // lambda(newT.slice({dim, inew}),astype(oldT.slice({dim, iold}),
       //            newT.dtype()));
+      // if(is_bool)
+      //   logical_or_op(newT, oldT, dim, inew, iold);
+      // else
       op(newT, oldT, dim, inew, iold);
 
 
@@ -99,6 +108,19 @@ void do_resample_non_inner(const Dim dim, const VariableConstView &oldT,
 //                  newT.dtype());};
 
 template <typename T>
+void resample_non_inner_logical_or(const Dim dim, const VariableConstView &oldT,
+                     Variable &newT, const VariableConstView &oldCoordT,
+                     const VariableConstView &newCoordT) {
+  // constexpr auto op = [](Variable &newT_, const VariableConstView &oldT_, const Dim dim_, const int inew, const int iold){ newT_.slice({dim_, inew}) += astype(oldT_.slice({dim_, iold}),
+  //                newT_.dtype());};
+  constexpr auto op = [](Variable &newT_, const VariableConstView &oldT_, const Dim dim_, const int inew, const int iold){ newT_.slice({dim_, inew}) |= astype(oldT_.slice({dim_, iold}),
+                 newT_.dtype());};
+  // newT *= 0.0 * units::one;
+  return do_resample_non_inner<T>(dim, oldT, newT, oldCoordT, newCoordT, op);
+}
+
+
+template <typename T>
 void resample_non_inner_sum(const Dim dim, const VariableConstView &oldT,
                      Variable &newT, const VariableConstView &oldCoordT,
                      const VariableConstView &newCoordT) {
@@ -107,7 +129,6 @@ void resample_non_inner_sum(const Dim dim, const VariableConstView &oldT,
   // newT *= 0.0 * units::one;
   return do_resample_non_inner<T>(dim, oldT, newT, oldCoordT, newCoordT, op);
 }
-
 
 // static constexpr auto resample_max = [](Variable &newT, const VariableConstView &oldT, const Dim dim, const int inew, const int iold){ newT.slice({dim, inew}) += astype(oldT.slice({dim, iold}),
 //                  newT.dtype());};
@@ -167,6 +188,9 @@ void resample_non_inner(const Dim dim, const VariableConstView &var,
                const VariableConstView &oldCoord,
                const VariableConstView &newCoord,
                const ResampleOp op) {
+    if (var.dtype() == dtype<bool>) {
+          resample_non_inner_logical_or<T>(dim, var, resampled, oldCoord, newCoord);
+    } else {
       if (op == ResampleOp::Sum) {
         resample_non_inner_sum<T>(dim, var, resampled, oldCoord, newCoord);
       } else if (op == ResampleOp::Max) {
@@ -186,6 +210,7 @@ void resample_non_inner(const Dim dim, const VariableConstView &var,
         throw std::runtime_error(
           "Unknown resampling operation.");
       }
+    }
 }
 
 namespace resample_inner_detail {
@@ -222,28 +247,33 @@ Variable resample(const VariableConstView &var, const Dim dim,
     // Variable counter{newCoord.slice({dim, 0, newCoord.dims()[dim] - 1})};
     // counter.setUnit(units::one);
     // zero(counter);
-    if (op == ResampleOp::Sum) {
+    if (var.dtype() == dtype<bool>) {
       return resample_inner(var.dtype(), dim, newCoord.dims()[dim] - 1, newCoord,
-                                             var, oldCoord, core::element::resample_sum);
-    } else if (op == ResampleOp::Max) {
-      return resample_inner(var.dtype(), dim,
-                                             newCoord.dims()[dim] - 1, newCoord,
-                                             var, oldCoord, core::element::resample_max);
-    } else if (op == ResampleOp::Min) {
-      return resample_inner(var.dtype(), dim,
-                                             newCoord.dims()[dim] - 1, newCoord,
-                                             var, oldCoord, core::element::resample_min);
-    } else if (op == ResampleOp::Mean) {
-      Variable counter = resample_inner(var.dtype(), dim, newCoord.dims()[dim] - 1, newCoord,
-                                             Variable(var.dtype(), var.dims()) + 1.0*units::one, oldCoord, core::element::resample_sum);
-      // Variable resampled_counter(resampled);
-      // counter.setUnit(units::one);
-      return resample_inner(var.dtype(), dim,
-                                             newCoord.dims()[dim] - 1, newCoord,
-                                             var, oldCoord, core::element::resample_sum) / counter;
+                                             var, oldCoord, core::element::resample_logical_or);
     } else {
-        throw std::runtime_error(
-          "Unknown resampling operation.");
+      if (op == ResampleOp::Sum) {
+        return resample_inner(var.dtype(), dim, newCoord.dims()[dim] - 1, newCoord,
+                                               var, oldCoord, core::element::resample_sum);
+      } else if (op == ResampleOp::Max) {
+        return resample_inner(var.dtype(), dim,
+                                               newCoord.dims()[dim] - 1, newCoord,
+                                               var, oldCoord, core::element::resample_max);
+      } else if (op == ResampleOp::Min) {
+        return resample_inner(var.dtype(), dim,
+                                               newCoord.dims()[dim] - 1, newCoord,
+                                               var, oldCoord, core::element::resample_min);
+      } else if (op == ResampleOp::Mean) {
+        Variable counter = resample_inner(var.dtype(), dim, newCoord.dims()[dim] - 1, newCoord,
+                                               Variable(var.dtype(), var.dims()) + 1.0*units::one, oldCoord, core::element::resample_sum);
+        // Variable resampled_counter(resampled);
+        // counter.setUnit(units::one);
+        return resample_inner(var.dtype(), dim,
+                                               newCoord.dims()[dim] - 1, newCoord,
+                                               var, oldCoord, core::element::resample_sum) / counter;
+      } else {
+          throw std::runtime_error(
+            "Unknown resampling operation.");
+      }
     }
 
   } else {

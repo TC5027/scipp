@@ -10,7 +10,6 @@
 #include "scipp/variable/misc_operations.h"
 #include "scipp/variable/rebin.h"
 #include "scipp/variable/transform_subspan.h"
-// #include <iostream>
 
 namespace scipp::variable {
 
@@ -32,6 +31,7 @@ void rebin_non_inner(const Dim dim, const VariableConstView &oldT,
   // coord is 1D.
   int iold = 0;
   int inew = 0;
+  const bool is_bool = newT.dtype() == dtype<bool>;
   while ((iold < oldSize) && (inew < newSize)) {
     auto xo_low = xold[iold];
     auto xo_high = xold[iold + 1];
@@ -44,12 +44,16 @@ void rebin_non_inner(const Dim dim, const VariableConstView &oldT,
       iold++; /* old and new bins do not overlap */
     else {
       // delta is the overlap of the bins on the x axis
-      auto delta = std::min(xn_high, xo_high) - std::max(xn_low, xo_low);
+      if (is_bool) {
+        newT.slice({dim, inew}) |= oldT.slice({dim, iold});
+      } else {
+        auto delta = std::min(xn_high, xo_high) - std::max(xn_low, xo_low);
 
-      auto owidth = xo_high - xo_low;
-      newT.slice({dim, inew}) +=
-          astype(oldT.slice({dim, iold}) * ((delta / owidth) * units::one),
-                 newT.dtype());
+        auto owidth = xo_high - xo_low;
+        newT.slice({dim, inew}) +=
+            astype(oldT.slice({dim, iold}) * ((delta / owidth) * units::one),
+                   newT.dtype());
+      }
       if (xn_high > xo_high) {
         iold++;
       } else {
@@ -77,7 +81,6 @@ Variable rebin(const VariableConstView &var, const Dim dim,
         "The input does not have coordinates with bin-edges.");
 
   if (var.dims().inner() == dim) {
-    // std::cout << "Using transform_subspan" << std::endl;
     using namespace rebin_inner_detail;
     return transform_subspan<std::tuple<
         args<double, double, double, double>, args<float, float, float, float>,
@@ -87,7 +90,6 @@ Variable rebin(const VariableConstView &var, const Dim dim,
                                            var, oldCoord, core::element::rebin);
 
   } else {
-    // std::cout << "Using rebin_non_inner" << std::endl;
     auto dims = var.dims();
     dims.resize(dim, newCoord.dims()[dim] - 1);
     Variable rebinned(var, dims);

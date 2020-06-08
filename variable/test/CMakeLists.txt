@@ -7,11 +7,13 @@ add_executable(
   comparison_test.cpp
   indexed_slice_view_test.cpp
   operations_test.cpp
+  rebin_test.cpp
   reduce_logical_test.cpp
   reduce_various_test.cpp
   subspan_view_test.cpp
   transform_test.cpp
   trigonometry_test.cpp
+  util_test.cpp
   variable_concept_test.cpp
   variable_custom_type_test.cpp
   variable_keyword_args_constructor_test.cpp

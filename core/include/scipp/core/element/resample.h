@@ -24,6 +24,16 @@ static constexpr auto resample =
       const auto newSize = scipp::size(xnew) - 1;
       scipp::index iold = 0;
       scipp::index inew = 0;
+      // // const bool is_bool = newT.dtype() == dtype<bool>;
+
+
+      //     } else if constexpr (std::is_same_v<typename std::decay_t<decltype(
+      //                                             data_new)>::value_type,
+      //                                         bool>) {
+      //       static_cast<void>(scale);
+      //       data_new[inew] = data_new[inew] || data_old[iold];
+
+
       while ((iold < oldSize) && (inew < newSize)) {
         const auto xo_low = xold[iold];
         const auto xo_high = xold[iold + 1];
@@ -65,6 +75,12 @@ static constexpr auto resample =
           //   counter[inew] += 1.0; //* units::one;
           //   data_new[inew] += data_old[iold] / counter[inew];
           // }
+          // } else if constexpr (std::is_same_v<typename std::decay_t<decltype(
+          //                                         data_new)>::value_type,
+          //                                     bool>) {
+          //   static_cast<void>(scale);
+          //   data_new[inew] = data_new[inew] || data_old[iold];
+
           op(data_old, data_new, iold, inew);
 
           // // Sum implementation
@@ -117,6 +133,14 @@ constexpr auto min_op = [](const auto &data_old, const auto &data_new, const int
               data_new.variance[inew] = data_old.variance[iold];
           } else {
             data_new[inew] = std::min(data_new[inew], data_old[iold]);
+          }};
+
+constexpr auto logical_or_op = [](const auto &data_old, const auto &data_new, const int iold, const int inew) {
+      if constexpr (is_ValueAndVariance_v<
+                            std::decay_t<decltype(data_old)>>) {
+            throw except::VariancesError("Boolean input cannot have variances.");
+          } else {
+            data_new[inew] = data_new[inew] || data_old[iold];
           }};
 
 static constexpr auto resample_sum = overloaded{
@@ -179,6 +203,24 @@ static constexpr auto resample_min = overloaded{
       //                           "units::dimensionless) can be rebinned.");
       // if (counter != units::one)
       //   throw except::UnitError("Counter units should be dimensionless.");
+      return data;
+    },
+    transform_flags::expect_in_variance_if_out_variance,
+    transform_flags::expect_no_variance_arg<1>,
+    transform_flags::expect_no_variance_arg<3>};
+
+
+static constexpr auto resample_logical_or = overloaded{
+    [](const auto &data_new, const auto &xnew, const auto &data_old,
+       const auto &xold) {
+      zero(data_new);
+      return resample(data_new, xnew, data_old, xold, logical_or_op);
+    },
+    [](const units::Unit &target_edges, const units::Unit &data,
+       const units::Unit &edges) {
+      if (target_edges != edges)
+        throw except::UnitError(
+            "Input and output bin edges must have the same unit.");
       return data;
     },
     transform_flags::expect_in_variance_if_out_variance,
