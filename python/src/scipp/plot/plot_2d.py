@@ -381,6 +381,7 @@ class Slicer2d(Slicer):
         # print(
         vslice =  sc.resample(vslice, self.yrebin.dims[0], self.yrebin, op)
 
+
         if self.params["masks"][self.name]["show"]:
             # shape_list = [self.shapes[self.name][bdim] for bdim in button_dims]
             mslice = sc.combine_masks(vslice.masks, vslice.dims,
@@ -400,14 +401,21 @@ class Slicer2d(Slicer):
                             values=mslice.values.astype(np.int32))
             # for dim in msk.dims:
             #     if not self.histograms[self.name][dim]:
+            if transp:
+                msk = sc.transpose(msk, button_dims)
+
+        vslice = vslice.data
+
+        if transp:
+            vslice = sc.transpose(vslice, button_dims)
 
 
         for i, key in enumerate(self.ax.keys()):
             arr = getattr(vslice, key)
             if key == "variances":
                 arr = np.sqrt(arr)
-            if transp:
-                arr = arr.T
+            # if transp:
+            #     arr = arr.T
             self.im[key].set_data(arr)
             if autoscale_cbar:
                 cbar_params = parse_params(globs=self.vminmax,
@@ -419,8 +427,12 @@ class Slicer2d(Slicer):
                 self.params[key][self.name]["norm"] = cbar_params["norm"]
                 self.im[key].set_norm(self.params[key][self.name]["norm"])
             if self.params["masks"][self.name]["show"]:
-                self.im[self.get_mask_key(key)].set_data(
-                    self.mask_to_float(msk.values, arr))
+                # self.im[self.get_mask_key(key)].set_data(
+                #     self.mask_to_float(msk.values, arr))
+                masked_data = vslice / msk
+                # if transp:
+                #     masked_data = masked_data.T
+                self.im[self.get_mask_key(key)].set_data(masked_data.values)
                 self.im[self.get_mask_key(key)].set_norm(
                     self.params[key][self.name]["norm"])
 

@@ -21,6 +21,7 @@ void init_histogram(py::module &);
 void init_neutron(py::module &);
 void init_operations(py::module &);
 void init_reduction(py::module &);
+void init_shape(py::module &);
 void init_trigonometry(py::module &);
 void init_unary(py::module &);
 void init_units_neutron(py::module &);
@@ -41,6 +42,7 @@ void init_core(py::module &m) {
   init_geometry(core);
   init_histogram(core);
   init_reduction(core);
+  init_shape(core);
   init_trigonometry(core);
   init_unary(core);
   init_event_list(core);

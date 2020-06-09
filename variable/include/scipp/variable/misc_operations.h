@@ -13,7 +13,7 @@ SCIPP_VARIABLE_EXPORT Variable astype(const VariableConstView &var,
                                       const DType type);
 
 SCIPP_VARIABLE_EXPORT std::vector<Variable>
-split(const Variable &var, const Dim dim,
+split(const VariableConstView &var, const Dim dim,
       const std::vector<scipp::index> &indices);
 SCIPP_VARIABLE_EXPORT Variable filter(const Variable &var,
                                       const Variable &filter);

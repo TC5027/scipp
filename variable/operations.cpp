@@ -15,10 +15,10 @@ namespace scipp::variable {
 
 // Example of a "derived" operation: Implementation does not require adding a
 // virtual function to VariableConcept.
-std::vector<Variable> split(const Variable &var, const Dim dim,
+std::vector<Variable> split(const VariableConstView &var, const Dim dim,
                             const std::vector<scipp::index> &indices) {
   if (indices.empty())
-    return {var};
+    return {Variable(var)};
   std::vector<Variable> vars;
   vars.emplace_back(var.slice({dim, 0, indices.front()}));
   for (scipp::index i = 0; i < scipp::size(indices) - 1; ++i)

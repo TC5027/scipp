@@ -138,6 +138,8 @@ constexpr auto min_op = [](const auto &data_old, const auto &data_new, const int
 constexpr auto logical_or_op = [](const auto &data_old, const auto &data_new, const int iold, const int inew) {
       if constexpr (is_ValueAndVariance_v<
                             std::decay_t<decltype(data_old)>>) {
+            static_cast<void>(iold);
+            static_cast<void>(inew);
             throw except::VariancesError("Boolean input cannot have variances.");
           } else {
             data_new[inew] = data_new[inew] || data_old[iold];
