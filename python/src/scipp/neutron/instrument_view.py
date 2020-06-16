@@ -318,28 +318,28 @@ class InstrumentView:
         self.masks_solid_color.observe(self.update_masks_solid_color,
                                        names="value")
 
-        # Place widgets in boxes
-        box_list = [
-            self.widgets.HBox([
-                self.dropdown, self.slider, self.label, checkbox_label,
-                self.continuous_update
-            ]),
-            self.widgets.HBox([self.nbins, self.bin_size]),
-            self.widgets.HBox([
-                self.select_rendering, self.opacity_slider,
-                self.select_colormap, self.colormap_error
-            ]), self.togglebuttons
-        ]
-        # Only show mask controls if masks are present
-        if masks_present:
-            box_list.append(
-                self.widgets.HBox([
-                    self.masks_showhide, self.masks_cmap_or_color,
-                    self.masks_colormap, self.masks_colormap_error,
-                    self.masks_solid_color
-                ]))
+        # # Place widgets in boxes
+        # box_list = [
+        #     self.widgets.HBox([
+        #         self.dropdown, self.slider, self.label, checkbox_label,
+        #         self.continuous_update
+        #     ]),
+        #     self.widgets.HBox([self.nbins, self.bin_size]),
+        #     self.widgets.HBox([
+        #         self.select_rendering, self.opacity_slider,
+        #         self.select_colormap, self.colormap_error
+        #     ]), self.togglebuttons
+        # ]
+        # # Only show mask controls if masks are present
+        # if masks_present:
+        #     box_list.append(
+        #         self.widgets.HBox([
+        #             self.masks_showhide, self.masks_cmap_or_color,
+        #             self.masks_colormap, self.masks_colormap_error,
+        #             self.masks_solid_color
+        #         ]))
 
-        self.vbox = self.widgets.VBox(box_list)
+        # self.vbox = self.widgets.VBox(box_list)
 
         # Get detector positions
         self.det_pos = sn.position(self.hist_data_array[self.key])
@@ -354,6 +354,37 @@ class InstrumentView:
                         sc.min(comp, self.other_dim).value,
                         sc.max(comp, self.other_dim).value
                     ])))
+
+        dsize = self.camera_pos * 0.05
+        self.detector_size_slider = self.widgets.FloatLogSlider(min=np.log10(0.001*dsize),
+                                                       max=np.log10(1000.0*dsize),
+                                                       value=dsize,
+                                                       # step=0.01,
+                                                       description="Size")
+        self.detector_size_slider.observe(self.update_size, names="value")
+
+        # Place widgets in boxes
+        box_list = [
+            self.widgets.HBox([
+                self.dropdown, self.slider, self.label, checkbox_label,
+                self.continuous_update
+            ]),
+            self.widgets.HBox([self.nbins, self.bin_size]),
+            self.widgets.HBox([
+                self.select_rendering, self.opacity_slider,
+                self.select_colormap, self.colormap_error
+            ]), self.detector_size_slider, self.togglebuttons
+        ]
+        # Only show mask controls if masks are present
+        if masks_present:
+            box_list.append(
+                self.widgets.HBox([
+                    self.masks_showhide, self.masks_cmap_or_color,
+                    self.masks_colormap, self.masks_colormap_error,
+                    self.masks_solid_color
+                ]))
+
+        self.vbox = self.widgets.VBox(box_list)
 
         # Add the red green blue axes helper
         self.axes_3d = self.p3.AxesHelper(self.camera_pos * 50.0)
@@ -468,7 +499,7 @@ class InstrumentView:
                     [self.det_pos.shape[0], 3], dtype=np.float32))
             })
         points_material = self.p3.PointsMaterial(vertexColors='VertexColors',
-                                                 size=self.camera_pos * 0.05,
+                                                 size=self.detector_size_slider.value,
                                                  transparent=True)
         points = self.p3.Points(geometry=points_geometry,
                                 material=points_material)
@@ -977,3 +1008,6 @@ class InstrumentView:
             self.lock_camera = True
             self.change_projection(self.buttons[self.current_projection])
             self.lock_camera = False
+
+    def update_size(self, change):
+        self.points.material.size = change["new"]
