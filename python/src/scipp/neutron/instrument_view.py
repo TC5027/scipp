@@ -31,7 +31,8 @@ def instrument_view(scipp_obj=None,
                     continuous_update=True,
                     dim="tof",
                     rendering="Full",
-                    background="#f0f0f0"):
+                    background="#f0f0f0",
+                    pixel_size=None):
     """
     Plot a 2D or 3D view of the instrument.
     A slider is also generated to navigate the dimension (dim) given as an
@@ -59,7 +60,8 @@ def instrument_view(scipp_obj=None,
                         continuous_update=continuous_update,
                         dim=dim,
                         rendering=rendering,
-                        background=background)
+                        background=background,
+                        pixel_size=pixel_size)
 
     render_plot(widgets=iv.box, filename=filename)
 
@@ -81,7 +83,8 @@ class InstrumentView:
                  continuous_update=None,
                  dim=None,
                  rendering=None,
-                 background=None):
+                 background=None,
+                 pixel_size=None):
 
         # Delayed imports to avoid hard dependencies
         self.widgets = importlib.import_module("ipywidgets")
@@ -228,15 +231,18 @@ class InstrumentView:
             self.hist_data_array[self.key].shape[self.tof_dim_indx]),
                                        description="Number of bins:",
                                        style={"description_width": "initial"},
-                                       continuous_update=False)
+                                       continuous_update=False,
+                                       layout={"width": "200px"})
         self.nbins.observe(self.update_nbins, names="value")
 
         tof_values = self.hist_data_array[self.key].coords[
             self.slider_dim].values
-        self.bin_size = self.widgets.Text(value=str(tof_values[1] -
-                                                    tof_values[0]),
-                                          description="Bin size:",
-                                          continuous_update=False)
+        self.bin_size = self.widgets.Text(
+            value=str(tof_values[1] - tof_values[0]),
+            description="Bin size:",
+            style={"description_width": "initial"},
+            continuous_update=False,
+            layout={"width": "200px"})
         self.bin_size.observe(self.update_bin_size, names="value")
 
         # Add dropdown to change cmap
@@ -318,29 +324,6 @@ class InstrumentView:
         self.masks_solid_color.observe(self.update_masks_solid_color,
                                        names="value")
 
-        # # Place widgets in boxes
-        # box_list = [
-        #     self.widgets.HBox([
-        #         self.dropdown, self.slider, self.label, checkbox_label,
-        #         self.continuous_update
-        #     ]),
-        #     self.widgets.HBox([self.nbins, self.bin_size]),
-        #     self.widgets.HBox([
-        #         self.select_rendering, self.opacity_slider,
-        #         self.select_colormap, self.colormap_error
-        #     ]), self.togglebuttons
-        # ]
-        # # Only show mask controls if masks are present
-        # if masks_present:
-        #     box_list.append(
-        #         self.widgets.HBox([
-        #             self.masks_showhide, self.masks_cmap_or_color,
-        #             self.masks_colormap, self.masks_colormap_error,
-        #             self.masks_solid_color
-        #         ]))
-
-        # self.vbox = self.widgets.VBox(box_list)
-
         # Get detector positions
         self.det_pos = sn.position(self.hist_data_array[self.key])
         # Find extents of the detectors
@@ -355,12 +338,14 @@ class InstrumentView:
                         sc.max(comp, self.other_dim).value
                     ])))
 
-        dsize = self.camera_pos * 0.05
-        self.detector_size_slider = self.widgets.FloatLogSlider(min=np.log10(0.001*dsize),
-                                                       max=np.log10(1000.0*dsize),
-                                                       value=dsize,
-                                                       # step=0.01,
-                                                       description="Size")
+        if pixel_size is None:
+            pixel_size = self.camera_pos * 0.05
+        self.detector_size_slider = self.widgets.FloatLogSlider(
+            min=np.log10(0.001 * pixel_size),
+            max=np.log10(1000.0 * pixel_size),
+            value=pixel_size,
+            description="Pixel size",
+            continuous_update=False)
         self.detector_size_slider.observe(self.update_size, names="value")
 
         # Place widgets in boxes
@@ -369,11 +354,14 @@ class InstrumentView:
                 self.dropdown, self.slider, self.label, checkbox_label,
                 self.continuous_update
             ]),
-            self.widgets.HBox([self.nbins, self.bin_size]),
             self.widgets.HBox([
-                self.select_rendering, self.opacity_slider,
-                self.select_colormap, self.colormap_error
-            ]), self.detector_size_slider, self.togglebuttons
+                self.nbins, self.bin_size, self.select_colormap,
+                self.colormap_error
+            ]),
+            self.widgets.HBox([
+                self.select_rendering, self.detector_size_slider,
+                self.opacity_slider
+            ]), self.togglebuttons
         ]
         # Only show mask controls if masks are present
         if masks_present:
@@ -498,9 +486,10 @@ class InstrumentView:
                 self.p3.BufferAttribute(array=np.zeros(
                     [self.det_pos.shape[0], 3], dtype=np.float32))
             })
-        points_material = self.p3.PointsMaterial(vertexColors='VertexColors',
-                                                 size=self.detector_size_slider.value,
-                                                 transparent=True)
+        points_material = self.p3.PointsMaterial(
+            vertexColors='VertexColors',
+            size=self.detector_size_slider.value,
+            transparent=True)
         points = self.p3.Points(geometry=points_geometry,
                                 material=points_material)
         return points_geometry, points_material, points
@@ -997,6 +986,7 @@ class InstrumentView:
             self.geometry, self.material, self.mesh = \
                 self.create_mesh_geometry()
             self.scene.add(self.mesh)
+            self.detector_size_slider.disabled = True
         else:
             if self.mesh is not None and self.mesh in self.scene.children:
                 self.scene.remove(self.mesh)
@@ -1004,6 +994,7 @@ class InstrumentView:
             self.geometry, self.material, self.points = \
                 self.create_points_geometry()
             self.scene.add(self.points)
+            self.detector_size_slider.disabled = False
         if "old" in change:
             self.lock_camera = True
             self.change_projection(self.buttons[self.current_projection])
