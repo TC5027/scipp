@@ -210,20 +210,24 @@ def _rot_from_vectors(vec1, vec2):
 def get_detector_pos(ws):
     nHist = ws.getNumberHistograms()
     pos = np.zeros([nHist, 3])
-
+    mean_pixel_size = 0.0
     spec_info = ws.spectrumInfo()
+    comp_info = ws.componentInfo()
     for i in range(nHist):
         if spec_info.hasDetectors(i):
             p = spec_info.position(i)
             pos[i, 0] = p.X()
             pos[i, 1] = p.Y()
             pos[i, 2] = p.Z()
+            mean_pixel_size += np.amax(comp_info.shape(
+                spec_info.getSpectrumDefinition(i)[0][0]).getBoundingBox().width())
         else:
             pos[i, :] = [np.nan, np.nan, np.nan]
-    return sc.Variable(['spectrum'],
+    return {"pos": sc.Variable(['spectrum'],
                        values=pos,
                        unit=sc.units.m,
-                       dtype=sc.dtype.vector_3_float64)
+                       dtype=sc.dtype.vector_3_float64),
+            "pixel-size": (mean_pixel_size / float(nHist)) * sc.units.one}
 
 
 def get_detector_properties(ws,
@@ -231,7 +235,7 @@ def get_detector_properties(ws,
                             sample_pos,
                             advanced_geometry=False):
     if not advanced_geometry:
-        return (get_detector_pos(ws), None, None)
+        return (get_detector_pos(ws)["pos"], None, None, get_detector_pos(ws)["pixel-size"])
     spec_info = ws.spectrumInfo()
     det_info = ws.detectorInfo()
     comp_info = ws.componentInfo()
@@ -308,14 +312,15 @@ def get_detector_properties(ws,
 
         pos = sc.geometry.position(averaged["x"].data, averaged["y"].data,
                                    averaged["z"].data)
-        return (inv_rot * pos,
-                sc.Variable(['spectrum'],
-                            values=det_rot,
-                            dtype=sc.dtype.matrix_3_float64),
-                sc.Variable(['spectrum'],
-                            values=det_bbox,
-                            unit=sc.units.m,
-                            dtype=sc.dtype.vector_3_float64))
+        var_pos = inv_rot * pos
+        # ,
+        #         sc.Variable(['spectrum'],
+        #                     values=det_rot,
+        #                     dtype=sc.dtype.matrix_3_float64),
+        #         sc.Variable(['spectrum'],
+        #                     values=det_bbox,
+        #                     unit=sc.units.m,
+        #                     dtype=sc.dtype.vector_3_float64))
     else:
         pos = np.zeros([nspec, 3])
 
@@ -339,24 +344,26 @@ def get_detector_properties(ws,
                                   r.real()]))
                     bboxes.append(s.getBoundingBox().width())
                 pos[i, :] = np.mean(vec3s, axis=0)
-                det_rot[i, :] = sc.rotation_matrix_from_quaterion_cooffs(
+                det_rot[i, :] = sc.rotation_matrix_from_quaterion_coeffs(
                     np.mean(quats, axis=0))
                 det_bbox[i, :] = np.sum(bboxes, axis=0)
             else:
                 pos[i, :] = [np.nan, np.nan, np.nan]
                 det_rot[i, :] = [np.nan, np.nan, np.nan, np.nan]
                 det_bbox[i, :] = [np.nan, np.nan, np.nan]
-        return (sc.Variable(['spectrum'],
-                            values=pos,
-                            unit=sc.units.m,
-                            dtype=sc.dtype.vector_3_float64),
-                sc.Variable(['spectrum'],
-                            values=det_rot,
-                            dtype=sc.dtype.matrix_3_float64),
-                sc.Variable(['spectrum'],
-                            values=det_bbox,
-                            unit=sc.units.m,
-                            dtype=sc.dtype.vector_3_float64))
+        var_pos = sc.Variable(['spectrum'],
+                        values=pos,
+                        unit=sc.units.m,
+                        dtype=sc.dtype.vector_3_float64),
+    return (var_pos,
+            sc.Variable(['spectrum'],
+                        values=det_rot,
+                        dtype=sc.dtype.matrix_3_float64),
+            sc.Variable(['spectrum'],
+                        values=det_bbox,
+                        unit=sc.units.m,
+                        dtype=sc.dtype.vector_3_float64),
+            sc.Variable(value=np.mean(det_bbox)))
 
 
 def _get_dtype_from_values(values, coerce_floats_to_ints):
@@ -399,7 +406,7 @@ def _convert_MatrixWorkspace_info(ws, advanced_geometry=False):
     common_bins = ws.isCommonBins()
     dim, unit = validate_and_get_unit(ws.getAxis(0).getUnit().unitID())
     source_pos, sample_pos = make_component_info(ws)
-    pos, rot, shp = get_detector_properties(
+    pos, rot, shp, siz = get_detector_properties(
         ws, source_pos, sample_pos, advanced_geometry=advanced_geometry)
     spec_dim, spec_coord = init_spec_axis(ws)
 
@@ -440,6 +447,9 @@ def _convert_MatrixWorkspace_info(ws, advanced_geometry=False):
 
     if sample_pos is not None:
         info["coords"]["sample-position"] = sample_pos
+
+    if siz is not None:
+        info["attrs"]["pixel-size"] = siz
 
     if ws.detectorInfo().hasMaskedDetectors():
         spectrum_info = ws.spectrumInfo()
@@ -832,13 +842,15 @@ def load_component_info(ds, file, advanced_geometry=False):
 
         ds.coords["source-position"] = source_pos
         ds.coords["sample-position"] = sample_pos
-        pos, rot, shp = get_detector_properties(
+        pos, rot, shp, siz = get_detector_properties(
             ws, source_pos, sample_pos, advanced_geometry=advanced_geometry)
         ds.coords["position"] = pos
         if rot is not None:
             ds.attrs["rotation"] = rot
         if shp is not None:
             ds.attrs["shape"] = shp
+        if siz is not None:
+            ds.attrs["pixel-size"] = siz
 
 
 def validate_dim_and_get_mantid_string(unit_dim):
