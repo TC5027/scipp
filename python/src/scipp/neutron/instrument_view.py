@@ -512,17 +512,22 @@ class InstrumentView:
         x = sc.geometry.x(self.det_pos)
         y = sc.geometry.y(self.det_pos)
         z = sc.geometry.z(self.det_pos)
-        minx = sc.min(x).value
-        maxx = sc.max(x).value
-        miny = sc.min(y).value
-        maxy = sc.max(y).value
-        minz = sc.min(z).value
-        maxz = sc.max(z).value
+        self.limits = {
+            "minx": sc.min(x).value
+            "maxx": sc.max(x).value
+            "miny": sc.min(y).value
+            "maxy": sc.max(y).value
+            "minz": sc.min(z).value
+            "maxz": sc.max(z).value
+        }
 
-        line_geometry = self.p3.BoxBufferGeometry(maxx-minx, maxy-miny, maxz-minz)
+        line_geometry = self.p3.BoxBufferGeometry(
+            self.limits["maxx"]-self.limits["minx"],
+            self.limits["maxy"]-self.limits["miny"],
+            self.limits["maxz"]-self.limits["minz"])
         edges = self.p3.EdgesGeometry( line_geometry )
         outline = self.p3.LineSegments( edges, self.p3.LineBasicMaterial(color="black"),
-        position=[0.5*(minx+maxx), 0.5*(miny+maxy), 0.5*(minz+maxz)] )
+        position=[0.5*(self.limits["minx"]+self.limits["maxx"]), 0.5*(self.limits["miny"]+self.limits["maxy"]), 0.5*(self.limits["minz"]+self.limits["maxz"])] )
 
         return outline
 
