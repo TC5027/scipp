@@ -15,10 +15,11 @@ def visit_events_data(data_array,
                       return_events_data=False,
                       weights=None):
 
-    xmin = 1.0e30
-    xmax = -1.0e30
+    xmin = np.Inf
+    xmax = np.NINF
     dims = data_array.dims
     shapes = data_array.shape
+    nevents = 0
     # Add an extra dim for the events dimension
     ndims = len(dims) + 1
 
@@ -42,6 +43,7 @@ def visit_events_data(data_array,
             scatter_array.append([])
 
     # Now construct all indices combinations using itertools
+    print("visit_events_data", 0)
     for ind in product(*indices):
         # And for each indices combination, slice the original
         # data down to the events dimension
@@ -50,7 +52,10 @@ def visit_events_data(data_array,
             vslice = vslice[dims[i], ind[i]]
 
         vals = vslice.coords[events_dim].values
-        if len(vals) > 0:
+        nevs = len(vals)
+        if nevs > 0:
+            print("nevents", len(vals))
+            nevents += nevs
             xmin = min(xmin, np.nanmin(vals))
             xmax = max(xmax, np.nanmax(vals))
             if return_events_data:
@@ -62,6 +67,8 @@ def visit_events_data(data_array,
                 if data_exists:
                     scatter_array[ndims].append(vslice.values)
 
+    if nevents == 0:
+        xmin = xmax = 0.0
     if return_events_data:
         for i in range(ndims + data_exists):
             scatter_array[i] = np.concatenate(scatter_array[i])
@@ -131,6 +138,8 @@ def histogram_events_data(data_array, events_dim, bins):
     Return a DataArray containing histogrammed event data, from specified
     events dimensions and bins. See make_bins for more details.
     """
+    print(bins)
+    print(make_bins(data_array=data_array, events_dim=events_dim, bins=bins))
     return sc.histogram(
         data_array,
         make_bins(data_array=data_array, events_dim=events_dim, bins=bins))

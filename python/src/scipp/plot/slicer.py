@@ -290,10 +290,13 @@ class Slicer:
 
         if dim in data_array.coords:
 
+            print("DD", dim, data_array.coords[dim].dims[0])
+            print(data_array.coords[dim].dims)
             dim_coord_dim = data_array.coords[dim].dims[0]
             tp = data_array.coords[dim].dtype
 
             if tp == dtype.vector_3_float64:
+                print("here 1")
                 var = make_fake_coord(dim,
                                       self.shapes[name][dim],
                                       unit=data_array.coords[dim].unit)
@@ -306,6 +309,7 @@ class Slicer:
                 locator[False] = ticker.MaxNLocator(integer=True)
 
             elif tp == dtype.string:
+                print("here 2")
                 var = make_fake_coord(dim,
                                       self.shapes[name][dim],
                                       unit=data_array.coords[dim].unit)
@@ -316,13 +320,15 @@ class Slicer:
                 formatter.update({False: form, True: form})
                 locator[False] = ticker.MaxNLocator(integer=True)
 
-            elif dim != dim_coord_dim:  # non-dimension coordinate
+            elif dim != dim_coord_dim and len(data_array.coords[dim].dims) == 1:  # non-dimension coordinate
+                print("here 3")
                 var = data_array.coords[dim_coord_dim]
                 form = ticker.FuncFormatter(lambda val, pos: value_to_string(
                     data_array.coords[dim].values[np.abs(data_array.coords[
                         dim_coord_dim].values - val).argmin()]))
                 formatter.update({False: form, True: form})
             else:
+                print("here 4")
                 var = data_array.coords[dim]
 
         else:

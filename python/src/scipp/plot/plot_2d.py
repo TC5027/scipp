@@ -91,6 +91,8 @@ class Slicer2d(Slicer):
 
         self.members["images"] = {}
         self.extent = {"x": [1, 2], "y": [1, 2]}
+        self.xy = {}
+        self.ypos = None
         self.logx = logx
         self.logy = logy
         self.vminmax = {"vmin": vmin, "vmax": vmax}
@@ -122,48 +124,63 @@ class Slicer2d(Slicer):
                          config.plot.height / config.plot.dpi),
                 dpi=config.plot.dpi)
 
+        # Call update_slice once to make the initial image
+        # self.slice_axes()
+        # vslice, transp = self.slice_data()
+
         self.im = dict()
         self.cbar = None
 
-        self.im["values"] = self.make_default_imshow(
-            self.params["values"][self.name]["cmap"])
+        # self.im["values"] = self.make_default_imshow(vslice,
+        #     self.params["values"][self.name]["cmap"])
         self.ax.set_title(self.name)
-        if self.params["values"][self.name]["cbar"]:
-            self.cbar = plt.colorbar(self.im["values"],
-                                     ax=self.ax,
-                                     cax=self.cax)
-            self.cbar.ax.set_ylabel(
-                name_with_unit(var=self.data_array, name=""))
-        if self.cax is None:
-            self.cbar.ax.yaxis.set_label_coords(-1.1, 0.5)
-        self.members["images"] = self.im["values"]
-        self.members["colorbar"] = self.cbar
-        if self.params["masks"][self.name]["show"]:
-            self.im["masks"] = self.make_default_imshow(
-                cmap=self.params["masks"][self.name]["cmap"])
+        # if self.params["values"][self.name]["cbar"]:
+        #     self.cbar = plt.colorbar(self.im["values"],
+        #                              ax=self.ax,
+        #                              cax=self.cax)
+        #     self.cbar.ax.set_ylabel(
+        #         name_with_unit(var=self.data_array, name=""))
+        # if self.cax is None:
+        #     self.cbar.ax.yaxis.set_label_coords(-1.1, 0.5)
+        # self.members["images"] = self.im["values"]
+        # self.members["colorbar"] = self.cbar
+        # if self.params["masks"][self.name]["show"]:
+        #     self.im["masks"] = self.make_default_imshow(vslice,
+        #         cmap=self.params["masks"][self.name]["cmap"])
         if self.logx:
             self.ax.set_xscale("log")
         if self.logy:
             self.ax.set_yscale("log")
 
-        # Call update_slice once to make the initial image
+        # # Call update_slice once to make the initial image
         self.update_axes()
-        self.update_slice(None)
+        # self.update_slice(None)
         self.vbox = widgets.VBox(self.vbox)
         self.vbox.layout.align_items = 'center'
         self.members["fig"] = self.fig
         self.members["ax"] = self.ax
+        self.members["images"] = self.im["values"]
+        self.members["colorbar"] = self.cbar
 
         return
 
-    def make_default_imshow(self, cmap):
-        return self.ax.imshow([[1.0, 1.0], [1.0, 1.0]],
+    def make_default_imshow(self, data, cmap):
+        # return self.ax.imshow([[1.0, 1.0], [1.0, 1.0]],
+        #                       norm=self.params["values"][self.name]["norm"],
+        #                       extent=np.array(list(
+        #                           self.extent.values())).flatten(),
+        #                       origin="lower",
+        #                       aspect=self.aspect,
+        #                       interpolation="nearest",
+        #                       cmap=cmap)
+        # print("hahaha", self.xy["x"], self.xy["y"], data)
+        return self.ax.pcolormesh(self.xy["x"], self.xy["y"], data.values,
                               norm=self.params["values"][self.name]["norm"],
-                              extent=np.array(list(
-                                  self.extent.values())).flatten(),
-                              origin="lower",
-                              aspect=self.aspect,
-                              interpolation="nearest",
+                              # extent=np.array(list(
+                              #     self.extent.values())).flatten(),
+                              # origin="lower",
+                              # aspect=self.aspect,
+                              # interpolation="nearest",
                               cmap=cmap)
 
     def update_buttons(self, owner, event, dummy):
@@ -182,9 +199,62 @@ class Slicer2d(Slicer):
                     self.slider[dim].disabled = False
         owner.old_value = owner.value
         self.update_axes()
-        self.update_slice(None)
+        # self.update_slice(None)
 
         return
+
+
+    # def slice_axes(self):
+    #     # Go through the buttons and select the right coordinates for the axes
+    #     axparams = {"x": {}, "y": {}}
+    #     for dim, button in self.buttons.items():
+    #         if self.slider[dim].disabled:
+    #             but_val = button.value.lower()
+    #             self.xy[but_val] = self.slider_x[self.name][dim].values
+    #             # if not self.histograms[self.name][dim]:
+    #             #     xc = self.slider_x[self.name][dim].values
+    #             #     if self.slider_nx[self.name][dim] < 2:
+    #             #         dx = 0.5 * abs(xc[0])
+    #             #         if dx == 0.0:
+    #             #             dx = 0.5
+    #             #         xmin = xc[0] - dx
+    #             #         xmax = xc[0] + dx
+    #             #         axparams[but_val]["xmin"] = xmin
+    #             #         axparams[but_val]["xmax"] = xmax
+    #             #     else:
+    #             #         xmin = 1.5 * xc[0] - 0.5 * xc[1]
+    #             #         xmax = 1.5 * xc[-1] - 0.5 * xc[-2]
+    #             #     self.extent[but_val] = [xmin, xmax]
+    #             # else:
+    #             #     self.extent[but_val] = self.slider_x[
+    #             #         self.name][dim].values[[0, -1]].astype(np.float)
+
+    #             # axparams[but_val]["lims"] = self.extent[but_val].copy()
+    #             # if getattr(self,
+    #             #            "log" + but_val) and (self.extent[but_val][0] <= 0):
+    #             #     if not self.histograms[self.name][dim]:
+    #             #         new_x = centers_to_edges(xc)
+    #             #     else:
+    #             #         new_x = edges_to_centers(
+    #             #             self.slider_x[self.name][dim].values)
+    #             #     axparams[but_val]["lims"][0] = new_x[np.searchsorted(
+    #             #         new_x, 0)]
+    #             axparams[but_val]["labels"] = name_with_unit(
+    #                 self.slider_x[self.name][dim], name=str(dim))
+    #             axparams[but_val]["dim"] = dim
+
+    #     self.ax.set_xlabel(axparams["x"]["labels"])
+    #     self.ax.set_ylabel(axparams["y"]["labels"])
+
+    #     for xy, param in axparams.items():
+    #         getattr(self.ax, "{}axis".format(xy)).set_major_formatter(
+    #             self.slider_axformatter[self.name][param["dim"]][getattr(
+    #                 self, "log{}".format(xy))])
+    #         getattr(self.ax, "{}axis".format(xy)).set_major_locator(
+    #             self.slider_axlocator[self.name][param["dim"]][getattr(
+    #                 self, "log{}".format(xy))])
+    #     return
+
 
     def update_axes(self):
         # Go through the buttons and select the right coordinates for the axes
@@ -192,6 +262,7 @@ class Slicer2d(Slicer):
         for dim, button in self.buttons.items():
             if self.slider[dim].disabled:
                 but_val = button.value.lower()
+                # self.xy[but_val] = self.slider_x[self.name][dim].values
                 if not self.histograms[self.name][dim]:
                     xc = self.slider_x[self.name][dim].values
                     if self.slider_nx[self.name][dim] < 2:
@@ -206,62 +277,84 @@ class Slicer2d(Slicer):
                         xmin = 1.5 * xc[0] - 0.5 * xc[1]
                         xmax = 1.5 * xc[-1] - 0.5 * xc[-2]
                     self.extent[but_val] = [xmin, xmax]
+                    self.xy[but_val] = centers_to_edges(self.slider_x[self.name][dim].values)
                 else:
                     self.extent[but_val] = self.slider_x[
                         self.name][dim].values[[0, -1]].astype(np.float)
+                    self.xy[but_val] = self.slider_x[self.name][dim].values
 
                 axparams[but_val]["lims"] = self.extent[but_val].copy()
-                if getattr(self,
-                           "log" + but_val) and (self.extent[but_val][0] <= 0):
-                    if not self.histograms[self.name][dim]:
-                        new_x = centers_to_edges(xc)
-                    else:
-                        new_x = edges_to_centers(
-                            self.slider_x[self.name][dim].values)
-                    axparams[but_val]["lims"][0] = new_x[np.searchsorted(
-                        new_x, 0)]
+                # if getattr(self,
+                #            "log" + but_val) and (self.extent[but_val][0] <= 0):
+                #     if not self.histograms[self.name][dim]:
+                #         new_x = centers_to_edges(xc)
+                #     else:
+                #         new_x = edges_to_centers(
+                #             self.slider_x[self.name][dim].values)
+                #     axparams[but_val]["lims"][0] = new_x[np.searchsorted(
+                #         new_x, 0)]
                 axparams[but_val]["labels"] = name_with_unit(
                     self.slider_x[self.name][dim], name=str(dim))
                 axparams[but_val]["dim"] = dim
+        # self.slice_axes()
+        print("==================================")
+        print(self.xy)
+        print("==================================")
+        vslice, transp = self.slice_data()
+        arr = vslice.values
+        print('before', np.shape(arr))
+        if transp:
+            arr = arr.T
+        print('after', np.shape(arr))
+        self.ax.collections = []
+        self.im["values"] = self.ax.pcolormesh(self.xy["x"], self.xy["y"], arr,
+                              norm=self.params["values"][self.name]["norm"],
+                              # extent=np.array(list(
+                              #     self.extent.values())).flatten(),
+                              # origin="lower",
+                              # aspect=self.aspect,
+                              # interpolation="nearest",
+                              cmap=self.params["values"][self.name]["cmap"])
 
-        extent_array = np.array(list(self.extent.values())).flatten()
+        # print(self.extent)
+        # extent_array = np.array(list(self.extent.values())).flatten()
 
-        for xy, param in axparams.items():
-            # Create coordinate axes for resampled array to be used as image
-            offset = 2 * (xy == "y")
-            self.xyrebin[xy] = sc.Variable(
-                dims=[param["dim"]],
-                values=np.linspace(extent_array[0 + offset],
-                                   extent_array[1 + offset],
-                                   self.image_resolution[xy] + 1),
-                unit=self.slider_x[self.name][param["dim"]].unit)
+        # for xy, param in axparams.items():
+        #     # Create coordinate axes for resampled array to be used as image
+        #     offset = 2 * (xy == "y")
+        #     self.xyrebin[xy] = sc.Variable(
+        #         dims=[param["dim"]],
+        #         values=np.linspace(extent_array[0 + offset],
+        #                            extent_array[1 + offset],
+        #                            self.image_resolution[xy] + 1),
+        #         unit=self.slider_x[self.name][param["dim"]].unit)
 
-            # Create bin-edge coordinates in the case of non bin-edges, since
-            # rebin only accepts bin edges.
-            xydims = self.xyrebin[xy].dims
-            if not self.histograms[self.name][xydims[0]]:
-                self.xyedges[xy] = sc.Variable(
-                    dims=xydims,
-                    values=centers_to_edges(
-                        self.slider_x[self.name][xydims[0]].values),
-                    unit=self.slider_x[self.name][xydims[0]].unit)
-            else:
-                self.xyedges[xy] = self.slider_x[self.name][xydims[0]].astype(
-                    sc.dtype.float64)
+        #     # Create bin-edge coordinates in the case of non bin-edges, since
+        #     # rebin only accepts bin edges.
+        #     xydims = self.xyrebin[xy].dims
+        #     if not self.histograms[self.name][xydims[0]]:
+        #         self.xyedges[xy] = sc.Variable(
+        #             dims=xydims,
+        #             values=centers_to_edges(
+        #                 self.slider_x[self.name][xydims[0]].values),
+        #             unit=self.slider_x[self.name][xydims[0]].unit)
+        #     else:
+        #         self.xyedges[xy] = self.slider_x[self.name][xydims[0]].astype(
+        #             sc.dtype.float64)
 
-            # Pixel widths used for scaling before rebin step
-            self.xywidth[xy] = (self.xyedges[xy][param["dim"], 1:] -
-                                self.xyedges[xy][param["dim"], :-1]) / (
-                                    self.xyrebin[xy][param["dim"], 1] -
-                                    self.xyrebin[xy][param["dim"], 0])
-            self.xywidth[xy].unit = sc.units.one
+        #     # Pixel widths used for scaling before rebin step
+        #     self.xywidth[xy] = (self.xyedges[xy][param["dim"], 1:] -
+        #                         self.xyedges[xy][param["dim"], :-1]) / (
+        #                             self.xyrebin[xy][param["dim"], 1] -
+        #                             self.xyrebin[xy][param["dim"], 0])
+        #     self.xywidth[xy].unit = sc.units.one
 
         # Set axes limits and ticks
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)
-            self.im["values"].set_extent(extent_array)
-            if self.params["masks"][self.name]["show"]:
-                self.im["masks"].set_extent(extent_array)
+            # self.im["values"].set_extent(extent_array)
+            # if self.params["masks"][self.name]["show"]:
+            #     self.im["masks"].set_extent(extent_array)
             self.ax.set_xlim(axparams["x"]["lims"])
             self.ax.set_ylim(axparams["y"]["lims"])
         self.ax.set_xlabel(axparams["x"]["labels"])
@@ -275,9 +368,13 @@ class Slicer2d(Slicer):
                 self.slider_axlocator[self.name][param["dim"]][getattr(
                     self, "log{}".format(xy))])
 
+
+        
+        print(self.slider_x)
+
         return
 
-    def update_slice(self, change):
+    def slice_data(self):
         """
         Slice data according to new slider value.
         """
@@ -299,11 +396,52 @@ class Slicer2d(Slicer):
             else:
                 # Get the dimensions of the dimension-coordinates, since
                 # buttons can contain non-dimension coordinates
+                # button_dims[self.buttons[dim].value.lower() ==
+                #             "x"] = self.slider_x[self.name][val.dim].dims[0]
                 button_dims[self.buttons[dim].value.lower() ==
-                            "x"] = self.slider_x[self.name][val.dim].dims[0]
+                            "x"] = self.slider_x[self.name][dim].dims
 
         # Check if dimensions of arrays agree, if not, plot the transpose
-        transp = vslice.dims != button_dims
+        # transp = vslice.dims != button_dims
+        print("button_dims", button_dims)
+        # Get all vslice dims, accounting for possible 2D coords
+        vdims = []
+        for dim in vslice.dims:
+            vdims.append(vslice.coords[dim].dims)
+        print("vdims", vdims)
+        transp = vdims != button_dims
+        print("transp", transp)
+        return vslice, transp
+
+
+    def update_slice(self, change):
+        """
+        Slice data according to new slider value.
+        """
+        # vslice = self.data_array
+        # if self.params["masks"][self.name]["show"]:
+        #     mslice = self.masks
+        # # Slice along dimensions with active sliders
+        # button_dims = [None, None]
+        # for dim, val in self.slider.items():
+        #     if not val.disabled:
+        #         self.lab[dim].value = self.make_slider_label(
+        #             self.slider_x[self.name][dim], val.value)
+        #         vslice = vslice[val.dim, val.value]
+        #         # At this point, after masks were combined, all their
+        #         # dimensions should be contained in the data_array.dims.
+        #         if self.params["masks"][
+        #                 self.name]["show"] and dim in mslice.dims:
+        #             mslice = mslice[val.dim, val.value]
+        #     else:
+        #         # Get the dimensions of the dimension-coordinates, since
+        #         # buttons can contain non-dimension coordinates
+        #         button_dims[self.buttons[dim].value.lower() ==
+        #                     "x"] = self.slider_x[self.name][val.dim].dims[0]
+
+        # # Check if dimensions of arrays agree, if not, plot the transpose
+        # transp = vslice.dims != button_dims
+        vslice, transp = self.slice_data()
 
         # In the case of unaligned data, we may want to auto-scale the colorbar
         # as we slice through dimensions. Colorbar limits are allowed to grow
@@ -313,89 +451,90 @@ class Slicer2d(Slicer):
             vslice = sc.histogram(vslice)
             autoscale_cbar = True
 
-        is_not_linspace = {
-            "x": not sc.is_linspace(self.xyedges["x"]),
-            "y": not sc.is_linspace(self.xyedges["y"])
-        }
+        # is_not_linspace = {
+        #     "x": not sc.is_linspace(self.xyedges["x"]),
+        #     "y": not sc.is_linspace(self.xyedges["y"])
+        # }
 
-        if np.any(list(is_not_linspace.values())):
-            # Make a new slice with bin edges and counts (for rebin), and with
-            # non-dimension coordinates if requested.
-            xy = "xy"
-            vslice = sc.DataArray(coords={
-                self.xyedges["x"].dims[0]: self.xyedges["x"],
-                self.xyedges["y"].dims[0]: self.xyedges["y"]
-            },
-                                  data=sc.Variable(dims=[
-                                      self.xyedges[xy[not transp]].dims[0],
-                                      self.xyedges[xy[transp]].dims[0]
-                                  ],
-                                                   values=vslice.values,
-                                                   unit=sc.units.counts))
+        # if np.any(list(is_not_linspace.values())):
+        #     # Make a new slice with bin edges and counts (for rebin), and with
+        #     # non-dimension coordinates if requested.
+        #     xy = "xy"
+        #     vslice = sc.DataArray(coords={
+        #         self.xyedges["x"].dims[0]: self.xyedges["x"],
+        #         self.xyedges["y"].dims[0]: self.xyedges["y"]
+        #     },
+        #                           data=sc.Variable(dims=[
+        #                               self.xyedges[xy[not transp]].dims[0],
+        #                               self.xyedges[xy[transp]].dims[0]
+        #                           ],
+        #                                            values=vslice.values,
+        #                                            unit=sc.units.counts))
 
-            # Also include the masks
-            if self.params["masks"][self.name]["show"]:
-                mslice_dims = []
-                for dim in mslice.dims:
-                    if dim == button_dims[0]:
-                        mslice_dims.append(self.xyedges["y"].dims[0])
-                    elif dim == button_dims[1]:
-                        mslice_dims.append(self.xyedges["x"].dims[0])
-                    else:
-                        mslice_dims.append(dim)
-                vslice.masks["all"] = sc.Variable(dims=mslice_dims,
-                                                  values=mslice.values)
+        #     # Also include the masks
+        #     if self.params["masks"][self.name]["show"]:
+        #         mslice_dims = []
+        #         for dim in mslice.dims:
+        #             if dim == button_dims[0]:
+        #                 mslice_dims.append(self.xyedges["y"].dims[0])
+        #             elif dim == button_dims[1]:
+        #                 mslice_dims.append(self.xyedges["x"].dims[0])
+        #             else:
+        #                 mslice_dims.append(dim)
+        #         vslice.masks["all"] = sc.Variable(dims=mslice_dims,
+        #                                           values=mslice.values)
 
-        # Scale by bin width and then rebin in both directions
-        if is_not_linspace["x"]:
-            vslice *= self.xywidth["x"]
-            vslice = sc.rebin(vslice, self.xyrebin["x"].dims[0],
-                              self.xyrebin["x"])
-        if is_not_linspace["y"]:
-            vslice *= self.xywidth["y"]
-            vslice = sc.rebin(vslice, self.xyrebin["y"].dims[0],
-                              self.xyrebin["y"])
+        # # Scale by bin width and then rebin in both directions
+        # if is_not_linspace["x"]:
+        #     vslice *= self.xywidth["x"]
+        #     vslice = sc.rebin(vslice, self.xyrebin["x"].dims[0],
+        #                       self.xyrebin["x"])
+        # if is_not_linspace["y"]:
+        #     vslice *= self.xywidth["y"]
+        #     vslice = sc.rebin(vslice, self.xyrebin["y"].dims[0],
+        #                       self.xyrebin["y"])
 
-        # Remember to replace masks slice after rebin
-        if np.any(list(is_not_linspace.values())):
-            if self.params["masks"][self.name]["show"]:
-                mslice = vslice.masks["all"]
+        # # Remember to replace masks slice after rebin
+        # if np.any(list(is_not_linspace.values())):
+        #     if self.params["masks"][self.name]["show"]:
+        #         mslice = vslice.masks["all"]
 
-        if self.params["masks"][self.name]["show"]:
-            # Use scipp's automatic broadcast functionality to broadcast
-            # lower dimension masks to higher dimensions.
-            # TODO: creating a Variable here could become expensive when
-            # sliders are being used. We could consider performing the
-            # automatic broadcasting once and store it in the Slicer class,
-            # but this could create a large memory overhead if the data is
-            # large.
-            # Here, the data is at most 2D, so having the Variable creation
-            # and broadcasting should remain cheap.
-            msk = sc.Variable(dims=vslice.dims,
-                              values=np.ones(vslice.shape, dtype=np.int32))
-            msk *= sc.Variable(dims=mslice.dims,
-                               values=mslice.values.astype(np.int32))
-            msk = msk.values
-            if transp:
-                msk = msk.T
+        # if self.params["masks"][self.name]["show"]:
+        #     # Use scipp's automatic broadcast functionality to broadcast
+        #     # lower dimension masks to higher dimensions.
+        #     # TODO: creating a Variable here could become expensive when
+        #     # sliders are being used. We could consider performing the
+        #     # automatic broadcasting once and store it in the Slicer class,
+        #     # but this could create a large memory overhead if the data is
+        #     # large.
+        #     # Here, the data is at most 2D, so having the Variable creation
+        #     # and broadcasting should remain cheap.
+        #     msk = sc.Variable(dims=vslice.dims,
+        #                       values=np.ones(vslice.shape, dtype=np.int32))
+        #     msk *= sc.Variable(dims=mslice.dims,
+        #                        values=mslice.values.astype(np.int32))
+        #     msk = msk.values
+        #     if transp:
+        #         msk = msk.T
 
         arr = vslice.values
         if transp:
             arr = arr.T
-        self.im["values"].set_data(arr)
-        if autoscale_cbar:
-            cbar_params = parse_params(globs=self.vminmax,
-                                       array=arr,
-                                       min_val=self.global_vmin,
-                                       max_val=self.global_vmax)
-            self.global_vmin = cbar_params["vmin"]
-            self.global_vmax = cbar_params["vmax"]
-            self.params["values"][self.name]["norm"] = cbar_params["norm"]
-            self.im["values"].set_norm(
-                self.params["values"][self.name]["norm"])
-        if self.params["masks"][self.name]["show"]:
-            self.im["masks"].set_data(self.mask_to_float(msk, arr))
-            self.im["masks"].set_norm(self.params["values"][self.name]["norm"])
+        self.im["values"].set_array(arr.ravel())
+        self.fig.canvas.draw_idle()
+        # if autoscale_cbar:
+        #     cbar_params = parse_params(globs=self.vminmax,
+        #                                array=arr,
+        #                                min_val=self.global_vmin,
+        #                                max_val=self.global_vmax)
+        #     self.global_vmin = cbar_params["vmin"]
+        #     self.global_vmax = cbar_params["vmax"]
+        #     self.params["values"][self.name]["norm"] = cbar_params["norm"]
+        #     self.im["values"].set_norm(
+        #         self.params["values"][self.name]["norm"])
+        # if self.params["masks"][self.name]["show"]:
+        #     self.im["masks"].set_data(self.mask_to_float(msk, arr))
+        #     self.im["masks"].set_norm(self.params["values"][self.name]["norm"])
 
         return
 
